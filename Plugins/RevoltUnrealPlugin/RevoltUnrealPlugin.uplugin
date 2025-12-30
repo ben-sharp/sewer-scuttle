@@ -1,0 +1,38 @@
+{
+	"FileVersion": 3,
+	"Version": 6,
+	"VersionName": "2.3.7",
+	"FriendlyName": "Revolt Unreal Plugin",
+	"Description": "Real-time HTTP API server for querying Unreal Engine project information",
+	"Category": "Developer Tools",
+	"CreatedBy": "Bluedrake42",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "5.7.0",
+	"CanContainContent": true,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "RevoltUnrealPlugin",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit"
+		},
+		{
+			"Name": "RevoltLandGen",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "RevoltMenuFramework",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "RevoltLandMaterial",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

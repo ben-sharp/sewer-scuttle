@@ -1,0 +1,106 @@
+# RevoltUnrealPlugin Installation Guide
+# =====================================
+
+Version: 2.3.7
+Compatible: Unreal Engine 5.0+
+
+## 📋 Prerequisites
+
+- Unreal Engine 5.0 or later
+- Windows 10/11 (Win64 architecture)
+- Administrative privileges (for plugin installation)
+
+## 🚀 Quick Installation
+
+### Step 1: Extract Plugin
+1. Download the plugin package (zip file)
+2. Extract the `RevoltUnrealPlugin` folder to your project's `Plugins` directory:
+   ```
+   YourProject/
+   ├── Content/
+   ├── Plugins/
+   │   └── RevoltUnrealPlugin/  ← Extract here
+   │       ├── Binaries/
+   │       ├── Config/
+   │       └── RevoltUnrealPlugin.uplugin
+   ├── Source/
+   └── YourProject.uproject
+   ```
+   *Note: If the `Plugins` folder doesn't exist, create it.*
+
+### Step 2: Enable Plugin
+1. Close Unreal Engine Editor (if open)
+2. Open your .uproject file
+3. Go to Edit → Plugins
+4. Search for "Revolt"
+5. Check the box for "Revolt Unreal Plugin"
+6. Click "Restart Now" when prompted
+
+### Step 3: Verify Installation
+1. After restart, check the Output Log for:
+   ```
+   LogTemp: RevoltPlugin: Module starting up
+   LogTemp: RevoltPlugin: HTTP server started on port 8080
+   LogTemp: RevoltPlugin: API available at http://localhost:8080/api/
+   ```
+
+### Step 4: Test API
+Open command prompt and run:
+```
+curl http://localhost:8080/api/status
+```
+
+Expected response:
+```json
+{
+  "success": true,
+  "message": "RevoltUnrealPlugin is running",
+  "version": "2.3.7",
+  "endpoints": ["status", "blueprints", "levels", ...]
+}
+```
+
+## 📂 Distribution Options
+
+### Full Distribution
+Includes everything needed for development and runtime:
+- Compiled binaries
+- Source code
+- Documentation
+- Content assets
+
+## 🛠️ Manual Installation (Advanced)
+
+If automatic plugin detection fails:
+
+1. Create Plugins folder in your project root
+2. Extract plugin files to: `YourProject/Plugins/RevoltUnrealPlugin/`
+3. Edit your .uproject file and add to "Plugins" array:
+   ```json
+   {
+     "Name": "RevoltUnrealPlugin",
+     "Enabled": true
+   }
+   ```
+4. Regenerate project files
+5. Build and launch
+
+## 🔧 Configuration
+
+### Plugin Settings
+Access via: Edit → Plugins → Developer Tools → Revolt Unreal Plugin
+
+### Port Configuration
+Default port: 8080
+To change port, modify: `Config/FilterPlugin.ini`
+
+### Auto-Start
+Plugin starts automatically with editor by default.
+
+## 🐛 Troubleshooting
+
+### Plugin Not Loading
+- Verify file structure matches above
+- Check Unreal Engine version compatibility
+- Ensure .uplugin file is valid JSON
+
