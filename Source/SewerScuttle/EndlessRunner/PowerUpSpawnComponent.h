@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/SceneComponent.h"
 #include "PowerUp.h"
+#include "PowerUpDefinition.h"
 #include "PlayerClass.h"
 #include "PowerUpSpawnComponent.generated.h"
 
@@ -16,17 +17,17 @@ struct FPowerUpSpawnEntry
 {
 	GENERATED_BODY()
 
-	/** Power-up class to spawn */
+	/** Power-up definition data asset (contains class, weight, and properties) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PowerUp")
-	TSubclassOf<APowerUp> PowerUpClass;
+	UPowerUpDefinition* PowerUpDefinition;
 
-	/** Weight for weighted random selection (default: 1.0 = equal chance) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PowerUp", meta = (ClampMin = "0.1", ClampMax = "100.0"))
-	float Weight = 1.0f;
+	/** Override weight from data asset (0 = use data asset weight) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PowerUp", meta = (ClampMin = "0.0", ClampMax = "100.0", ToolTip = "Override weight from data asset. Set to 0 to use data asset's SelectionWeight."))
+	float WeightOverride = 0.0f;
 
-	/** Display name for editor (optional) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PowerUp")
-	FString DisplayName;
+	/** Override allowed classes from data asset (empty = use data asset's allowed classes if any) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PowerUp|Class Restrictions", meta = (ToolTip = "Override allowed classes. Empty = use data asset's allowed classes if any, or allow all classes."))
+	TArray<EPlayerClass> AllowedClassesOverride;
 };
 
 /**
@@ -44,6 +45,10 @@ public:
 	/** Select a valid power-up for the given player class using weighted random selection */
 	UFUNCTION(BlueprintCallable, Category = "PowerUp")
 	TSubclassOf<APowerUp> SelectPowerUp(EPlayerClass PlayerClass) const;
+
+	/** Select a power-up definition for the given player class (returns data asset) */
+	UFUNCTION(BlueprintCallable, Category = "PowerUp")
+	UPowerUpDefinition* SelectPowerUpDefinition(EPlayerClass PlayerClass) const;
 
 	/** Get all valid power-ups for the given player class */
 	UFUNCTION(BlueprintCallable, Category = "PowerUp")

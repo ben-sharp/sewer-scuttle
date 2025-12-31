@@ -178,6 +178,7 @@ void ATrackGenerator::Reset()
 	ActiveTrackPieces.Empty();
 	
 	// Reset tracking variables
+	TotalTrackPiecesSpawned = 0;
 	LastSpawnPosition = 0.0f;
 	DistanceTraveled = 0.0f;
 	PlayerCharacter = nullptr;
@@ -214,9 +215,10 @@ void ATrackGenerator::SpawnTrackPiece(float Position)
 	if (NewPiece)
 	{
 		ActiveTrackPieces.Add(NewPiece);
+		TotalTrackPiecesSpawned++;
 		// Update last spawn position to the end connection of the new piece
 		LastSpawnPosition = NewPiece->GetEndConnectionWorldPosition().X;
-		UE_LOG(LogTemp, Log, TEXT("TrackGenerator: Spawned piece, next connection at X=%.2f"), LastSpawnPosition);
+		UE_LOG(LogTemp, Log, TEXT("TrackGenerator: Spawned piece, next connection at X=%.2f, Total spawned: %d"), LastSpawnPosition, TotalTrackPiecesSpawned);
 	}
 }
 

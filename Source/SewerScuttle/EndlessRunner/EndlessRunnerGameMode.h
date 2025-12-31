@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "PlayerClass.h"
+#include "WebServerInterface.h"
 #include "EndlessRunnerGameMode.generated.h"
 
 class ATrackGenerator;
@@ -13,6 +14,7 @@ class UCurrencyManager;
 class ARabbitCharacter;
 class AEndlessRunnerHUD;
 class UPlayerClassDefinition;
+class UWebServerInterface;
 
 UENUM(BlueprintType)
 enum class EGameState : uint8
@@ -47,9 +49,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Game")
 	void SetGameState(EGameState NewState);
 
-	/** Start game */
+	/** Start game - requests seed from server first */
 	UFUNCTION(BlueprintCallable, Category = "Game")
 	void StartGame();
+
+	/** Start game with seed (called after seed is received from server) */
+	UFUNCTION(BlueprintCallable, Category = "Game")
+	void StartGameWithSeed(int32 Seed, const FString& InSeedId, int32 InMaxCoins, int32 InMaxObstacles, int32 InMaxTrackPieces);
 
 	/** Pause game */
 	UFUNCTION(BlueprintCallable, Category = "Game")
@@ -139,6 +145,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Game")
 	void OnPlayerHitObstacle(int32 LivesLost = 1, bool bInstantDeath = false);
 
+	/** Track powerup usage */
+	UFUNCTION(BlueprintCallable, Category = "Game")
+	void OnPowerUpUsed();
+
 	/** Respawn player */
 	UFUNCTION(BlueprintCallable, Category = "Game")
 	void RespawnPlayer();
@@ -174,6 +184,14 @@ public:
 	/** Get seeded random stream (for use by TrackGenerator and SpawnManager) */
 	FRandomStream& GetSeededRandomStream() { return SeededRandomStream; }
 
+	/** Handle seed received from server */
+	UFUNCTION()
+	void OnSeedReceived(const FRunSeedData& SeedData);
+
+	/** Handle seed request error */
+	UFUNCTION()
+	void OnSeedRequestError(const FString& ErrorMessage);
+
 	/** Check if magnet is active */
 	UFUNCTION(BlueprintPure, Category = "PowerUp")
 	bool IsMagnetActive() const { return bMagnetActive; }
@@ -194,6 +212,10 @@ protected:
 	/** Currency manager */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Managers")
 	UCurrencyManager* CurrencyManager;
+
+	/** Web server interface */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Managers")
+	UWebServerInterface* WebServerInterface;
 
 	/** Current game state */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Game")
@@ -217,6 +239,13 @@ protected:
 	/** Game time elapsed (in seconds) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	float GameTime = 0.0f;
+
+	/** Run statistics (for submission) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 ObstaclesHit = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 PowerupsUsed = 0;
 
 	/** Points per meter of distance traveled */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Score", meta = (ClampMin = "0.1", ClampMax = "100.0"))
@@ -258,6 +287,24 @@ protected:
 	/** Track generation seed (for deterministic/reproducible tracks) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Seed")
 	int32 TrackSeed = 0;
+
+	/** Seed ID from server (for run submission) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Seed")
+	FString SeedId;
+
+	/** Max values from server seed */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Seed")
+	int32 MaxCoins = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Seed")
+	int32 MaxObstacles = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Seed")
+	int32 MaxTrackPieces = 0;
+
+	/** Run start time (for submission) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Seed")
+	FDateTime RunStartTime;
 
 	/** Seeded random stream for deterministic generation */
 	FRandomStream SeededRandomStream;

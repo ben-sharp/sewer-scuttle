@@ -107,6 +107,15 @@ void APowerUp::Collect(ARabbitCharacter* Player)
 	// Call blueprint event
 	OnPowerUpCollected(Player);
 
+	// Notify game mode that powerup was used
+	if (UWorld* World = GetWorld())
+	{
+		if (AEndlessRunnerGameMode* GameMode = Cast<AEndlessRunnerGameMode>(World->GetAuthGameMode()))
+		{
+			GameMode->OnPowerUpUsed();
+		}
+	}
+
 	// Hide and destroy
 	if (MeshComponent)
 	{

@@ -71,5 +71,9 @@ protected:
 
 	/** Load coins locally (temporary cache, server is source of truth) */
 	void LoadCoinsLocal();
+
+	/** Callback when currency is loaded from server */
+	UFUNCTION()
+	void OnCurrencyLoadedFromServer(int32 ServerCoins);
 };
 

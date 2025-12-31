@@ -2,13 +2,14 @@
 
 #include "ObstacleSpawnComponent.h"
 #include "Obstacle.h"
+#include "ObstacleDefinition.h"
 
 UObstacleSpawnComponent::UObstacleSpawnComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-TSubclassOf<AObstacle> UObstacleSpawnComponent::SelectObstacle(EPlayerClass PlayerClass) const
+UObstacleDefinition* UObstacleSpawnComponent::SelectObstacleDefinition(EPlayerClass PlayerClass) const
 {
 	TArray<FObstacleSpawnEntry> ValidEntries;
 	float TotalWeight = 0.0f;
@@ -16,19 +17,27 @@ TSubclassOf<AObstacle> UObstacleSpawnComponent::SelectObstacle(EPlayerClass Play
 	// Filter valid obstacles
 	for (const FObstacleSpawnEntry& Entry : ObstacleEntries)
 	{
-		if (Entry.ObstacleClass)
+		if (Entry.ObstacleDefinition && Entry.ObstacleDefinition->ObstacleClass)
 		{
-			// Check if obstacle allows this player class
+			// Check if obstacle allows this player class (use override if set, otherwise check data asset)
 			bool bIsValidForClass = true;
-			if (Entry.AllowedClasses.Num() > 0)
+			TArray<EPlayerClass> AllowedClasses = Entry.AllowedClassesOverride.Num() > 0 
+				? Entry.AllowedClassesOverride 
+				: Entry.ObstacleDefinition->AllowedClasses;
+			
+			if (AllowedClasses.Num() > 0)
 			{
-				bIsValidForClass = Entry.AllowedClasses.Contains(PlayerClass);
+				bIsValidForClass = AllowedClasses.Contains(PlayerClass);
 			}
 
 			if (bIsValidForClass)
 			{
 				ValidEntries.Add(Entry);
-				TotalWeight += Entry.Weight;
+				// Use override weight if set, otherwise use data asset weight
+				float Weight = Entry.WeightOverride > 0.0f 
+					? Entry.WeightOverride 
+					: static_cast<float>(Entry.ObstacleDefinition->SelectionWeight);
+				TotalWeight += Weight;
 			}
 		}
 	}
@@ -36,9 +45,9 @@ TSubclassOf<AObstacle> UObstacleSpawnComponent::SelectObstacle(EPlayerClass Play
 	// If no valid entries and we don't require valid class, return first available
 	if (ValidEntries.Num() == 0)
 	{
-		if (!bRequireValidClass && ObstacleEntries.Num() > 0 && ObstacleEntries[0].ObstacleClass)
+		if (!bRequireValidClass && ObstacleEntries.Num() > 0 && ObstacleEntries[0].ObstacleDefinition)
 		{
-			return ObstacleEntries[0].ObstacleClass;
+			return ObstacleEntries[0].ObstacleDefinition;
 		}
 		
 		UE_LOG(LogTemp, Warning, TEXT("ObstacleSpawnComponent: No valid obstacles found for class %d"), (int32)PlayerClass);
@@ -53,16 +62,25 @@ TSubclassOf<AObstacle> UObstacleSpawnComponent::SelectObstacle(EPlayerClass Play
 
 		for (const FObstacleSpawnEntry& Entry : ValidEntries)
 		{
-			CurrentWeight += Entry.Weight;
+			float Weight = Entry.WeightOverride > 0.0f 
+				? Entry.WeightOverride 
+				: static_cast<float>(Entry.ObstacleDefinition->SelectionWeight);
+			CurrentWeight += Weight;
 			if (RandomValue <= CurrentWeight)
 			{
-				return Entry.ObstacleClass;
+				return Entry.ObstacleDefinition;
 			}
 		}
 	}
 
 	// Fallback to first valid entry
-	return ValidEntries[0].ObstacleClass;
+	return ValidEntries[0].ObstacleDefinition;
+}
+
+TSubclassOf<AObstacle> UObstacleSpawnComponent::SelectObstacle(EPlayerClass PlayerClass) const
+{
+	UObstacleDefinition* Definition = SelectObstacleDefinition(PlayerClass);
+	return Definition ? Definition->ObstacleClass : nullptr;
 }
 
 TArray<TSubclassOf<AObstacle>> UObstacleSpawnComponent::GetValidObstacles(EPlayerClass PlayerClass) const
@@ -71,24 +89,42 @@ TArray<TSubclassOf<AObstacle>> UObstacleSpawnComponent::GetValidObstacles(EPlaye
 
 	for (const FObstacleSpawnEntry& Entry : ObstacleEntries)
 	{
-		if (Entry.ObstacleClass)
+		if (Entry.ObstacleDefinition && Entry.ObstacleDefinition->ObstacleClass)
 		{
-			// Check if obstacle allows this player class
+			// Check if obstacle allows this player class (use override if set, otherwise check data asset)
 			bool bIsValidForClass = true;
-			if (Entry.AllowedClasses.Num() > 0)
+			TArray<EPlayerClass> AllowedClasses = Entry.AllowedClassesOverride.Num() > 0 
+				? Entry.AllowedClassesOverride 
+				: Entry.ObstacleDefinition->AllowedClasses;
+			
+			if (AllowedClasses.Num() > 0)
 			{
-				bIsValidForClass = Entry.AllowedClasses.Contains(PlayerClass);
+				bIsValidForClass = AllowedClasses.Contains(PlayerClass);
 			}
 
 			if (bIsValidForClass)
 			{
-				ValidObstacles.Add(Entry.ObstacleClass);
+				ValidObstacles.Add(Entry.ObstacleDefinition->ObstacleClass);
 			}
 		}
 	}
 
 	return ValidObstacles;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

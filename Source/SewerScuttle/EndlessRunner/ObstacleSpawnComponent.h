@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/SceneComponent.h"
 #include "Obstacle.h"
+#include "ObstacleDefinition.h"
 #include "PlayerClass.h"
 #include "ObstacleSpawnComponent.generated.h"
 
@@ -16,21 +17,17 @@ struct FObstacleSpawnEntry
 {
 	GENERATED_BODY()
 
-	/** Obstacle class to spawn */
+	/** Obstacle definition data asset (contains class, weight, and properties) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle")
-	TSubclassOf<AObstacle> ObstacleClass;
+	UObstacleDefinition* ObstacleDefinition;
 
-	/** Weight for weighted random selection (default: 1.0 = equal chance) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle", meta = (ClampMin = "0.1", ClampMax = "100.0"))
-	float Weight = 1.0f;
+	/** Override weight from data asset (0 = use data asset weight) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle", meta = (ClampMin = "0.0", ClampMax = "100.0", ToolTip = "Override weight from data asset. Set to 0 to use data asset's SelectionWeight."))
+	float WeightOverride = 0.0f;
 
-	/** Display name for editor (optional) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle")
-	FString DisplayName;
-
-	/** Player classes that can encounter this obstacle (empty = all classes) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle|Class Restrictions", meta = (ToolTip = "If empty, obstacle is available for all classes. If populated, only listed classes can encounter this obstacle."))
-	TArray<EPlayerClass> AllowedClasses;
+	/** Override allowed classes from data asset (empty = use data asset's allowed classes if any) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle|Class Restrictions", meta = (ToolTip = "Override allowed classes. Empty = use data asset's allowed classes if any, or allow all classes."))
+	TArray<EPlayerClass> AllowedClassesOverride;
 };
 
 /**
@@ -48,6 +45,10 @@ public:
 	/** Select a valid obstacle for the given player class using weighted random selection */
 	UFUNCTION(BlueprintCallable, Category = "Obstacle")
 	TSubclassOf<AObstacle> SelectObstacle(EPlayerClass PlayerClass) const;
+
+	/** Select an obstacle definition for the given player class (returns data asset) */
+	UFUNCTION(BlueprintCallable, Category = "Obstacle")
+	UObstacleDefinition* SelectObstacleDefinition(EPlayerClass PlayerClass) const;
 
 	/** Get all valid obstacles for the given player class */
 	UFUNCTION(BlueprintCallable, Category = "Obstacle")

@@ -31,6 +31,9 @@
 #include "Obstacle.h"
 #include "PlayerClass.h"
 #include "PlayerClassDefinition.h"
+#include "WebServerInterface.h"
+#include "DeviceIdManager.h"
+#include "Misc/DateTime.h"
 
 AEndlessRunnerGameMode::AEndlessRunnerGameMode()
 {
@@ -194,19 +197,65 @@ void AEndlessRunnerGameMode::StartGame()
 {
 	UE_LOG(LogTemp, Warning, TEXT("GameMode: StartGame() called - Current state: %d"), (int32)RunnerGameState);
 	
+	// Initialize WebServerInterface if needed
+	if (!WebServerInterface)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GameMode: Creating WebServerInterface..."));
+		WebServerInterface = NewObject<UWebServerInterface>(this);
+		WebServerInterface->Initialize();
+		
+		// Set up seed received callback
+		FOnSeedReceived OnSeedReceivedDelegate;
+		OnSeedReceivedDelegate.BindUFunction(this, FName("OnSeedReceived"));
+		UE_LOG(LogTemp, Warning, TEXT("GameMode: Binding OnSeedReceived delegate"));
+		WebServerInterface->SetOnSeedReceived(OnSeedReceivedDelegate);
+		
+		FOnError OnErrorDelegate;
+		OnErrorDelegate.BindUFunction(this, FName("OnSeedRequestError"));
+		UE_LOG(LogTemp, Warning, TEXT("GameMode: Binding OnError delegate"));
+		WebServerInterface->SetOnError(OnErrorDelegate);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GameMode: WebServerInterface already exists, reusing..."));
+	}
+
+	// Request seed from server
+	UE_LOG(LogTemp, Warning, TEXT("GameMode: Requesting seed from server..."));
+	WebServerInterface->RequestRunSeed(0); // 0 = use server default
+	
+	// Don't start game yet - wait for seed response
+	// The game will start when OnSeedReceived() or OnSeedRequestError() is called
+}
+
+void AEndlessRunnerGameMode::StartGameWithSeed(int32 Seed, const FString& InSeedId, int32 InMaxCoins, int32 InMaxObstacles, int32 InMaxTrackPieces)
+{
+	UE_LOG(LogTemp, Warning, TEXT("GameMode: StartGameWithSeed() called - Seed: %d, SeedId: %s"), Seed, *InSeedId);
+	
 	// Reset game state FIRST - this is critical
 	SetGameState(EGameState::Playing);
 	Score = 0;
 	RunCurrency = 0; // Reset run currency (temporary, per-run)
+	ObstaclesHit = 0;
+	PowerupsUsed = 0;
 	// Initialize distance tracking from spawn (starts at 0)
 	DistanceTraveled = 0.0f;
 	PreviousDistanceForScore = 0.0f;
 	GameTime = 0.0f;
 	
-	// Always generate a new random seed for each new run/retry
-	// (This ensures retry gets a fresh track layout)
-	TrackSeed = 0;
-	GenerateRandomSeed();
+	// Store seed data from server
+	TrackSeed = Seed;
+	SeedId = InSeedId;
+	MaxCoins = InMaxCoins;
+	MaxObstacles = InMaxObstacles;
+	MaxTrackPieces = InMaxTrackPieces;
+	RunStartTime = FDateTime::Now();
+	
+	// Initialize seeded random stream with server seed
+	SeededRandomStream.Initialize(TrackSeed);
+	
+	UE_LOG(LogTemp, Log, TEXT("GameMode: Seed set from server - Seed: %d, SeedId: %s, MaxCoins: %d, MaxObstacles: %d, MaxTrackPieces: %d"),
+		TrackSeed, *SeedId, MaxCoins, MaxObstacles, MaxTrackPieces);
 	
 	// Reset class-specific flags
 	bSpawnSpecialCollectibles = false;
@@ -680,6 +729,55 @@ void AEndlessRunnerGameMode::EndGame()
 {
 	SetGameState(EGameState::GameOver);
 	
+	// Submit run to server if we have a seed_id
+	UE_LOG(LogTemp, Warning, TEXT("GameMode: EndGame() called - SeedId: '%s' (length: %d), WebServerInterface: %s"), 
+		*SeedId, SeedId.Len(), WebServerInterface ? TEXT("Valid") : TEXT("NULL"));
+	
+	if (!SeedId.IsEmpty() && WebServerInterface)
+	{
+		// Calculate distance in meters (1 meter = 800 game units)
+		int32 DistanceMeters = FMath::RoundToInt(GetDistanceTraveled());
+		
+		// Calculate duration in seconds
+		int32 DurationSeconds = FMath::RoundToInt(GameTime);
+		
+		// Get track pieces spawned count
+		int32 TrackPiecesSpawned = 0;
+		if (TrackGenerator)
+		{
+			TrackPiecesSpawned = TrackGenerator->GetTotalTrackPiecesSpawned();
+		}
+		
+		// Format started_at timestamp (ISO 8601)
+		FString StartedAtStr = RunStartTime.ToIso8601();
+		
+		UE_LOG(LogTemp, Log, TEXT("GameMode: Submitting run - SeedId: %s, Score: %d, Distance: %d, Duration: %d, Coins: %d, Obstacles: %d, Powerups: %d, TrackPieces: %d"),
+			*SeedId, Score, DistanceMeters, DurationSeconds, RunCurrency, ObstaclesHit, PowerupsUsed, TrackPiecesSpawned);
+		
+		WebServerInterface->SubmitRun(
+			SeedId,
+			Score,
+			DistanceMeters,
+			DurationSeconds,
+			RunCurrency, // Coins collected
+			ObstaclesHit,
+			PowerupsUsed,
+			TrackPiecesSpawned,
+			StartedAtStr
+		);
+	}
+	else
+	{
+		if (SeedId.IsEmpty())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("GameMode: Cannot submit run - SeedId is empty"));
+		}
+		if (!WebServerInterface)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("GameMode: Cannot submit run - WebServerInterface is null"));
+		}
+	}
+	
 	// Pause the game
 	if (UWorld* World = GetWorld())
 	{
@@ -849,23 +947,8 @@ void AEndlessRunnerGameMode::OnPlayerHitObstacle(int32 LivesLost, bool bInstantD
 		}
 		Lives = 0;
 		
-		// Set game state to GameOver
-		SetGameState(EGameState::GameOver);
-		
-		// Show game over screen
-		if (UWorld* World = GetWorld())
-		{
-			if (APlayerController* PlayerController = World->GetFirstPlayerController())
-			{
-				PlayerController->bShowMouseCursor = true;
-				PlayerController->SetInputMode(FInputModeUIOnly());
-				
-				if (AEndlessRunnerHUD* HUD = Cast<AEndlessRunnerHUD>(PlayerController->GetHUD()))
-				{
-					HUD->ShowGameOverScreen();
-				}
-			}
-		}
+		// Call EndGame() to submit run and show game over screen
+		EndGame();
 		return;
 	}
 
@@ -920,24 +1003,8 @@ void AEndlessRunnerGameMode::OnPlayerHitObstacle(int32 LivesLost, bool bInstantD
 			}
 		}
 		
-		// Set game state to GameOver but don't pause
-		SetGameState(EGameState::GameOver);
-		
-		// Show game over screen without pausing
-		if (UWorld* World = GetWorld())
-		{
-			if (APlayerController* PlayerController = World->GetFirstPlayerController())
-			{
-				PlayerController->bShowMouseCursor = true;
-				PlayerController->SetInputMode(FInputModeUIOnly());
-				
-				// Show game over screen
-				if (AEndlessRunnerHUD* HUD = Cast<AEndlessRunnerHUD>(PlayerController->GetHUD()))
-				{
-					HUD->ShowGameOverScreen();
-				}
-			}
-		}
+		// Call EndGame() to submit run and show game over screen
+		EndGame();
 	}
 	else if (IsOnLastLegs())
 	{
@@ -1562,6 +1629,30 @@ void AEndlessRunnerGameMode::GenerateRandomSeed()
 	SeededRandomStream.Initialize(TrackSeed);
 	
 	UE_LOG(LogTemp, Log, TEXT("GameMode: Generated random track seed: %d"), TrackSeed);
+}
+
+void AEndlessRunnerGameMode::OnSeedReceived(const FRunSeedData& SeedData)
+{
+	UE_LOG(LogTemp, Warning, TEXT("GameMode: Seed received from server - Seed: %d, SeedId: %s, MaxCoins: %d, MaxObstacles: %d, MaxTrackPieces: %d"), 
+		SeedData.Seed, *SeedData.SeedId, SeedData.MaxCoins, SeedData.MaxObstacles, SeedData.MaxTrackPieces);
+	StartGameWithSeed(SeedData.Seed, SeedData.SeedId, SeedData.MaxCoins, SeedData.MaxObstacles, SeedData.MaxTrackPieces);
+}
+
+void AEndlessRunnerGameMode::OnPowerUpUsed()
+{
+	if (RunnerGameState == EGameState::Playing)
+	{
+		PowerupsUsed++;
+		UE_LOG(LogTemp, Log, TEXT("GameMode: PowerUp used - Total: %d"), PowerupsUsed);
+	}
+}
+
+void AEndlessRunnerGameMode::OnSeedRequestError(const FString& ErrorMessage)
+{
+	UE_LOG(LogTemp, Error, TEXT("GameMode: Failed to get seed from server: %s - Falling back to local random seed (NO RUN SUBMISSION)"), *ErrorMessage);
+	// Fallback to local random seed if server request fails
+	// Note: SeedId is empty, so run won't be submitted
+	StartGameWithSeed(FMath::RandRange(1, 2147483647), TEXT(""), 0, 0, 0);
 }
 
 

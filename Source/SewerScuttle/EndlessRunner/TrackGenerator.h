@@ -53,6 +53,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Track")
 	TArray<ATrackPiece*> GetActiveTrackPieces() const { return ActiveTrackPieces; }
 
+	/** Get total track pieces spawned during this run */
+	UFUNCTION(BlueprintPure, Category = "Track")
+	int32 GetTotalTrackPiecesSpawned() const { return TotalTrackPiecesSpawned; }
+
 private:
 	/** Select a track piece definition based on difficulty and weight */
 	UTrackPieceDefinition* SelectTrackPieceDefinition();
@@ -103,6 +107,10 @@ protected:
 	/** Pool of active track pieces */
 	UPROPERTY()
 	TArray<ATrackPiece*> ActiveTrackPieces;
+
+	/** Total track pieces spawned during this run */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track")
+	int32 TotalTrackPiecesSpawned = 0;
 
 	/** Timer for throttling spawn checks (don't check every frame) */
 	float SpawnCheckTimer = 0.0f;

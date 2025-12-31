@@ -6,6 +6,7 @@
 #include "Components/SceneComponent.h"
 #include "CollectibleCoin.h"
 #include "MultiCollectible.h"
+#include "CollectibleDefinition.h"
 #include "PlayerClass.h"
 #include "CollectibleSpawnComponent.generated.h"
 
@@ -17,21 +18,17 @@ struct FCollectibleSpawnEntry
 {
 	GENERATED_BODY()
 
-	/** Collectible class to spawn (Coin or MultiCollectible) */
+	/** Collectible definition data asset (contains class, weight, and properties) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collectible")
-	TSubclassOf<AActor> CollectibleClass;
+	UCollectibleDefinition* CollectibleDefinition;
 
-	/** Weight for weighted random selection (default: 1.0 = equal chance) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collectible", meta = (ClampMin = "0.1", ClampMax = "100.0"))
-	float Weight = 1.0f;
+	/** Override weight from data asset (0 = use data asset weight) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collectible", meta = (ClampMin = "0.0", ClampMax = "100.0", ToolTip = "Override weight from data asset. Set to 0 to use data asset's SelectionWeight."))
+	float WeightOverride = 0.0f;
 
-	/** Display name for editor (optional) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collectible")
-	FString DisplayName;
-
-	/** Player classes that can encounter this collectible (empty = all classes) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collectible|Class Restrictions", meta = (ToolTip = "If empty, collectible is available for all classes. If populated, only listed classes can encounter this collectible."))
-	TArray<EPlayerClass> AllowedClasses;
+	/** Override allowed classes from data asset (empty = use data asset's allowed classes if any) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collectible|Class Restrictions", meta = (ToolTip = "Override allowed classes. Empty = use data asset's allowed classes if any, or allow all classes."))
+	TArray<EPlayerClass> AllowedClassesOverride;
 };
 
 /**
@@ -49,6 +46,10 @@ public:
 	/** Select a valid collectible for the given player class using weighted random selection */
 	UFUNCTION(BlueprintCallable, Category = "Collectible")
 	TSubclassOf<AActor> SelectCollectible(EPlayerClass PlayerClass) const;
+
+	/** Select a collectible definition for the given player class (returns data asset) */
+	UFUNCTION(BlueprintCallable, Category = "Collectible")
+	UCollectibleDefinition* SelectCollectibleDefinition(EPlayerClass PlayerClass) const;
 
 	/** Get all valid collectibles for the given player class */
 	UFUNCTION(BlueprintCallable, Category = "Collectible")

@@ -1,7 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "RabbitAttributeSet.h"
-#include <type_traits>
 #include "Net/UnrealNetwork.h"
 
 URabbitAttributeSet::URabbitAttributeSet()

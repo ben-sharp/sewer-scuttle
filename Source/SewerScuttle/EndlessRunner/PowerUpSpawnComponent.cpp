@@ -2,13 +2,14 @@
 
 #include "PowerUpSpawnComponent.h"
 #include "PowerUp.h"
+#include "PowerUpDefinition.h"
 
 UPowerUpSpawnComponent::UPowerUpSpawnComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-TSubclassOf<APowerUp> UPowerUpSpawnComponent::SelectPowerUp(EPlayerClass PlayerClass) const
+UPowerUpDefinition* UPowerUpSpawnComponent::SelectPowerUpDefinition(EPlayerClass PlayerClass) const
 {
 	TArray<FPowerUpSpawnEntry> ValidEntries;
 	float TotalWeight = 0.0f;
@@ -16,14 +17,27 @@ TSubclassOf<APowerUp> UPowerUpSpawnComponent::SelectPowerUp(EPlayerClass PlayerC
 	// Filter valid power-ups
 	for (const FPowerUpSpawnEntry& Entry : PowerUpEntries)
 	{
-		if (Entry.PowerUpClass)
+		if (Entry.PowerUpDefinition && Entry.PowerUpDefinition->PowerUpClass)
 		{
-			// Check if power-up class allows this player class
-			APowerUp* CDO = Entry.PowerUpClass->GetDefaultObject<APowerUp>();
-			if (CDO && CDO->IsValidForClass(PlayerClass))
+			// Check if power-up allows this player class (use override if set, otherwise check data asset)
+			bool bIsValidForClass = true;
+			TArray<EPlayerClass> AllowedClasses = Entry.AllowedClassesOverride.Num() > 0 
+				? Entry.AllowedClassesOverride 
+				: Entry.PowerUpDefinition->AllowedClasses;
+			
+			if (AllowedClasses.Num() > 0)
+			{
+				bIsValidForClass = AllowedClasses.Contains(PlayerClass);
+			}
+
+			if (bIsValidForClass)
 			{
 				ValidEntries.Add(Entry);
-				TotalWeight += Entry.Weight;
+				// Use override weight if set, otherwise use data asset weight
+				float Weight = Entry.WeightOverride > 0.0f 
+					? Entry.WeightOverride 
+					: static_cast<float>(Entry.PowerUpDefinition->SelectionWeight);
+				TotalWeight += Weight;
 			}
 		}
 	}
@@ -31,9 +45,9 @@ TSubclassOf<APowerUp> UPowerUpSpawnComponent::SelectPowerUp(EPlayerClass PlayerC
 	// If no valid entries and we don't require valid class, return first available
 	if (ValidEntries.Num() == 0)
 	{
-		if (!bRequireValidClass && PowerUpEntries.Num() > 0 && PowerUpEntries[0].PowerUpClass)
+		if (!bRequireValidClass && PowerUpEntries.Num() > 0 && PowerUpEntries[0].PowerUpDefinition)
 		{
-			return PowerUpEntries[0].PowerUpClass;
+			return PowerUpEntries[0].PowerUpDefinition;
 		}
 		
 		UE_LOG(LogTemp, Warning, TEXT("PowerUpSpawnComponent: No valid power-ups found for class %d"), (int32)PlayerClass);
@@ -48,16 +62,25 @@ TSubclassOf<APowerUp> UPowerUpSpawnComponent::SelectPowerUp(EPlayerClass PlayerC
 
 		for (const FPowerUpSpawnEntry& Entry : ValidEntries)
 		{
-			CurrentWeight += Entry.Weight;
+			float Weight = Entry.WeightOverride > 0.0f 
+				? Entry.WeightOverride 
+				: static_cast<float>(Entry.PowerUpDefinition->SelectionWeight);
+			CurrentWeight += Weight;
 			if (RandomValue <= CurrentWeight)
 			{
-				return Entry.PowerUpClass;
+				return Entry.PowerUpDefinition;
 			}
 		}
 	}
 
 	// Fallback to first valid entry
-	return ValidEntries[0].PowerUpClass;
+	return ValidEntries[0].PowerUpDefinition;
+}
+
+TSubclassOf<APowerUp> UPowerUpSpawnComponent::SelectPowerUp(EPlayerClass PlayerClass) const
+{
+	UPowerUpDefinition* Definition = SelectPowerUpDefinition(PlayerClass);
+	return Definition ? Definition->PowerUpClass : nullptr;
 }
 
 TArray<TSubclassOf<APowerUp>> UPowerUpSpawnComponent::GetValidPowerUps(EPlayerClass PlayerClass) const
@@ -66,12 +89,22 @@ TArray<TSubclassOf<APowerUp>> UPowerUpSpawnComponent::GetValidPowerUps(EPlayerCl
 
 	for (const FPowerUpSpawnEntry& Entry : PowerUpEntries)
 	{
-		if (Entry.PowerUpClass)
+		if (Entry.PowerUpDefinition && Entry.PowerUpDefinition->PowerUpClass)
 		{
-			APowerUp* CDO = Entry.PowerUpClass->GetDefaultObject<APowerUp>();
-			if (CDO && CDO->IsValidForClass(PlayerClass))
+			// Check if power-up allows this player class
+			bool bIsValidForClass = true;
+			TArray<EPlayerClass> AllowedClasses = Entry.AllowedClassesOverride.Num() > 0 
+				? Entry.AllowedClassesOverride 
+				: Entry.PowerUpDefinition->AllowedClasses;
+			
+			if (AllowedClasses.Num() > 0)
 			{
-				ValidPowerUps.Add(Entry.PowerUpClass);
+				bIsValidForClass = AllowedClasses.Contains(PlayerClass);
+			}
+
+			if (bIsValidForClass)
+			{
+				ValidPowerUps.Add(Entry.PowerUpDefinition->PowerUpClass);
 			}
 		}
 	}

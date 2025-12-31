@@ -1,0 +1,137 @@
+{
+  "version": "1.0.0",
+  "exported_at": "2025-12-31T23:55:11.594Z",
+  "definitions": [
+    {
+      "type": "track_piece",
+      "id": "DA_TrackPiece_Start",
+      "name": "Start Room",
+      "properties": {
+        "length": 1600.0,
+        "min_difficulty": 0,
+        "max_difficulty": -1,
+        "weight": 1,
+        "is_first_piece": true,
+        "spawn_configs": [{"lane":1,"forward_position":0.00,"spawn_type":"coin","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"coin","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"coin","spawn_probability":1.00}]
+      }
+    },
+    {
+      "type": "track_piece",
+      "id": "DA_TrackPiece_Small_Room_Left",
+      "name": "Small room left",
+      "properties": {
+        "length": 1600.0,
+        "min_difficulty": 0,
+        "max_difficulty": -1,
+        "weight": 1,
+        "is_first_piece": false,
+        "spawn_configs": [{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00}]
+      }
+    },
+    {
+      "type": "track_piece",
+      "id": "DA_TrackPiece_Small_Room_Right",
+      "name": "Small room right",
+      "properties": {
+        "length": 1600.0,
+        "min_difficulty": 0,
+        "max_difficulty": -1,
+        "weight": 1,
+        "is_first_piece": false,
+        "spawn_configs": [{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00}]
+      }
+    },
+    {
+      "type": "track_piece",
+      "id": "DA_TrackPiece_Small_Room_Straight",
+      "name": "Small room",
+      "properties": {
+        "length": 1600.0,
+        "min_difficulty": 0,
+        "max_difficulty": -1,
+        "weight": 1,
+        "is_first_piece": false,
+        "spawn_configs": [{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00}]
+      }
+    },
+    {
+      "type": "track_piece",
+      "id": "DA_TrackPiece_Small_Pit_Room_Straight",
+      "name": "Small Pit Room",
+      "properties": {
+        "length": 1600.0,
+        "min_difficulty": 0,
+        "max_difficulty": -1,
+        "weight": 1,
+        "is_first_piece": false,
+        "spawn_configs": []
+      }
+    },
+    {
+      "type": "track_piece",
+      "id": "DA_TrackPiece_Long_Room",
+      "name": "Long room",
+      "properties": {
+        "length": 2400.0,
+        "min_difficulty": 0,
+        "max_difficulty": -1,
+        "weight": 1,
+        "is_first_piece": false,
+        "spawn_configs": []
+      }
+    },
+    {
+      "type": "track_piece",
+      "id": "DA_TrackPiece_Straight_Large",
+      "name": "Floor Long",
+      "properties": {
+        "length": 1600.0,
+        "min_difficulty": 0,
+        "max_difficulty": -1,
+        "weight": 1,
+        "is_first_piece": false,
+        "spawn_configs": [{"lane":2,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00}]
+      }
+    },
+    {
+      "type": "track_piece",
+      "id": "DA_TrackPiece_Turn_Left",
+      "name": "Turn Right",
+      "properties": {
+        "length": 800.0,
+        "min_difficulty": 0,
+        "max_difficulty": -1,
+        "weight": 1,
+        "is_first_piece": false,
+        "spawn_configs": []
+      }
+    },
+    {
+      "type": "obstacle",
+      "id": "OB_Pit_Death",
+      "name": "Pit Death",
+      "properties": {
+        "obstacle_type": "full",
+        "damage": 10.0,
+        "lives_lost": 10,
+        "is_breakable": false,
+        "ignore_last_stand": true,
+        "allowed_classes": ["vanilla","rogue","enforcer","joker","scout","collector"],
+        "weight": 1
+      }
+    },
+    {
+      "type": "powerup",
+      "id": "PU_Increase_Speed",
+      "name": "+ SPEED",
+      "properties": {
+        "duration": 0.0,
+        "allowed_classes": ["vanilla","rogue","enforcer","joker","scout","collector"],
+        "permanent_stat_modifier_effect": "GE_Speed_Up_C",
+        "stat_type_to_modify": "BaseSpeed",
+        "modification_value": 100.0,
+        "weight": 1
+      }
+    }
+  ]
+}

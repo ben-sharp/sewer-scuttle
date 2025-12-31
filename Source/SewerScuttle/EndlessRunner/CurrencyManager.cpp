@@ -16,8 +16,9 @@ void UCurrencyManager::Initialize()
 {
 	// Create web server interface
 	WebServerInterface = NewObject<UWebServerInterface>(this);
+	WebServerInterface->Initialize();
 
-	// Load coins from server (stub for now - will load from server when implemented)
+	// Load coins from server
 	LoadCoins();
 }
 
@@ -45,11 +46,9 @@ void UCurrencyManager::SaveCoins()
 	// Save locally as temporary cache
 	SaveCoinsLocal();
 
-	// Save to web server (async) - server is source of truth
-	if (WebServerInterface)
-	{
-		WebServerInterface->SaveCurrency(Coins);
-	}
+	// Note: Currency is managed server-side through player profile
+	// No direct save endpoint - currency updates happen through gameplay actions
+	// Server sync happens on LoadCoins()
 }
 
 void UCurrencyManager::LoadCoins()
@@ -60,8 +59,20 @@ void UCurrencyManager::LoadCoins()
 	// Load from web server (async) - server is source of truth
 	if (WebServerInterface)
 	{
+		// Set callback to update coins when loaded
+		FOnCurrencyLoaded OnLoaded;
+		OnLoaded.BindUFunction(this, FName("OnCurrencyLoadedFromServer"));
+		WebServerInterface->SetOnCurrencyLoaded(OnLoaded);
 		WebServerInterface->LoadCurrency();
 	}
+}
+
+void UCurrencyManager::OnCurrencyLoadedFromServer(int32 ServerCoins)
+{
+	// Update coins from server (server is source of truth)
+	Coins = ServerCoins;
+	SaveCoinsLocal();
+	UE_LOG(LogTemp, Log, TEXT("CurrencyManager: Loaded %d coins from server"), Coins);
 }
 
 bool UCurrencyManager::PurchaseItem(const FString& ItemId, int32 Price)

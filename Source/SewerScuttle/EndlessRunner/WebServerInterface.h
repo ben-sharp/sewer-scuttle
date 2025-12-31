@@ -6,13 +6,46 @@
 #include "UObject/NoExportTypes.h"
 #include "WebServerInterface.generated.h"
 
+class UHttpClient;
+class UAuthService;
+
 DECLARE_DYNAMIC_DELEGATE_OneParam(FOnCurrencyLoaded, int32, Currency);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FOnLeaderboardLoaded, TArray<FString>, Scores);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FOnScorePosted, bool, Success);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnError, const FString&, ErrorMessage);
+
+USTRUCT(BlueprintType)
+struct FRunSeedData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite)
+	FString SeedId;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 Seed;
+
+	UPROPERTY(BlueprintReadWrite)
+	FString ContentVersion;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 MaxCoins;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 MaxObstacles;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 MaxTrackPieces;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 MaxDistance;
+};
+
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnSeedReceived, const FRunSeedData&, SeedData);
 
 /**
  * Interface for web server communication
- * Stubbed implementation ready for HTTP client integration
+ * Uses HttpClient with authentication support
  */
 UCLASS()
 class SEWERSCUTTLE_API UWebServerInterface : public UObject
@@ -22,13 +55,9 @@ class SEWERSCUTTLE_API UWebServerInterface : public UObject
 public:
 	UWebServerInterface();
 
-	/** Web server base URL */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Web Server")
-	FString BaseURL = TEXT("http://localhost:3000/api");
-
-	/** Save currency to web server */
+	/** Initialize web server interface */
 	UFUNCTION(BlueprintCallable, Category = "Web Server")
-	void SaveCurrency(int32 Currency);
+	void Initialize();
 
 	/** Load currency from web server */
 	UFUNCTION(BlueprintCallable, Category = "Web Server")
@@ -46,6 +75,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Web Server")
 	void PurchaseItem(const FString& ItemId, int32 Price);
 
+	/** Request seed for new run */
+	UFUNCTION(BlueprintCallable, Category = "Web Server")
+	void RequestRunSeed(int32 MaxDistance = 0);
+
+	/** Submit completed run */
+	UFUNCTION(BlueprintCallable, Category = "Web Server")
+	void SubmitRun(const FString& SeedId, int32 Score, int32 Distance, int32 DurationSeconds, 
+		int32 CoinsCollected, int32 ObstaclesHit, int32 PowerupsUsed, int32 TrackPiecesSpawned,
+		const FString& StartedAt);
+
 	/** Set callback for currency loaded */
 	UFUNCTION(BlueprintCallable, Category = "Web Server")
 	void SetOnCurrencyLoaded(FOnCurrencyLoaded Callback) { OnCurrencyLoaded = Callback; }
@@ -57,6 +96,14 @@ public:
 	/** Set callback for score posted */
 	UFUNCTION(BlueprintCallable, Category = "Web Server")
 	void SetOnScorePosted(FOnScorePosted Callback) { OnScorePosted = Callback; }
+
+	/** Set callback for errors */
+	UFUNCTION(BlueprintCallable, Category = "Web Server")
+	void SetOnError(FOnError Callback) { OnError = Callback; }
+
+	/** Set callback for seed received */
+	UFUNCTION(BlueprintCallable, Category = "Web Server")
+	void SetOnSeedReceived(FOnSeedReceived Callback) { OnSeedReceived = Callback; }
 
 protected:
 	/** Callback for currency loaded */
@@ -71,10 +118,41 @@ protected:
 	UPROPERTY()
 	FOnScorePosted OnScorePosted;
 
-	/** Make HTTP request (stubbed - ready for HTTP module integration) */
-	void MakeHTTPRequest(const FString& Endpoint, const FString& Method, const FString& Body = TEXT(""));
+	/** Callback for errors */
+	UPROPERTY()
+	FOnError OnError;
 
-	/** Handle HTTP response (stubbed) */
-	void HandleHTTPResponse(const FString& Response, const FString& Endpoint);
+	/** Callback for seed received */
+	UPROPERTY()
+	FOnSeedReceived OnSeedReceived;
+
+	/** HTTP client */
+	UPROPERTY()
+	UHttpClient* HttpClient;
+
+	/** Auth service */
+	UPROPERTY()
+	UAuthService* AuthService;
+
+	/** Handle currency response */
+	void OnCurrencyResponse(int32 ResponseCode, const FString& ResponseBody);
+
+	/** Handle leaderboard response */
+	void OnLeaderboardResponse(int32 ResponseCode, const FString& ResponseBody);
+
+	/** Handle score post response */
+	void OnScorePostResponse(int32 ResponseCode, const FString& ResponseBody);
+
+	/** Handle purchase response */
+	void OnPurchaseResponse(int32 ResponseCode, const FString& ResponseBody);
+
+	/** Handle seed response */
+	void OnSeedResponse(int32 ResponseCode, const FString& ResponseBody);
+
+	/** Handle run submit response */
+	void OnRunSubmitResponse(int32 ResponseCode, const FString& ResponseBody);
+
+	/** Handle HTTP error */
+	void OnHttpError(int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody);
 };
 
