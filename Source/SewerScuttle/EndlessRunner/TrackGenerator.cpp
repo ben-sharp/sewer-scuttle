@@ -72,10 +72,10 @@ void ATrackGenerator::Tick(float DeltaTime)
 	if (SpawnCheckTimer >= SpawnCheckInterval)
 	{
 		SpawnCheckTimer = 0.0f;
-		float DistanceAhead = DistanceTraveled + SpawnDistanceAhead;
+		float DistanceAhead = DistanceTraveled + 40000.0f; // Increase spawn ahead distance to 50m (40,000 units)
 		if (bTrackSequenceLoaded && !bEndlessMode)
 		{
-			if (LastSpawnPosition < DistanceAhead && CurrentPieceIndex < TrackSequenceData.PieceIds.Num())
+			if (LastSpawnPosition < DistanceAhead && CurrentPieceIndex < TrackSequenceData.Pieces.Num())
 				SpawnNextSequencePiece();
 		}
 		else if (bEndlessMode)
@@ -104,7 +104,7 @@ void ATrackGenerator::Initialize(ARabbitCharacter* InPlayerCharacter)
 		
 		// Pre-spawn initial pieces from sequence
 		// Ensure the first piece (index 0) is actually spawned at 0
-		for (int32 i = 0; i < PiecesAhead && CurrentPieceIndex < TrackSequenceData.PieceIds.Num(); ++i)
+		for (int32 i = 0; i < PiecesAhead && CurrentPieceIndex < TrackSequenceData.Pieces.Num(); ++i)
 		{
 			SpawnNextSequencePiece();
 		}
@@ -155,7 +155,14 @@ void ATrackGenerator::LoadTrackSequence(const FTrackSequenceData& SequenceData)
 	Reset(); TrackSequenceData = SequenceData; CurrentPieceIndex = 0; bTrackSequenceLoaded = true; bEndlessMode = false; LastSpawnPosition = 0.0f;
 }
 
-int32 ATrackGenerator::GetRemainingPieces() const { return bTrackSequenceLoaded ? FMath::Max(0, TrackSequenceData.PieceIds.Num() - CurrentPieceIndex) : 0; }
+int32 ATrackGenerator::GetRemainingPieces() const { return bTrackSequenceLoaded ? FMath::Max(0, TrackSequenceData.Pieces.Num() - CurrentPieceIndex) : 0; }
+
+TArray<FString> ATrackGenerator::GetCurrentPieceIds() const
+{
+    TArray<FString> Ids;
+    for (const FTrackPiecePrescription& P : TrackSequenceData.Pieces) Ids.Add(P.PieceId);
+    return Ids;
+}
 
 UTrackPieceDefinition* ATrackGenerator::FindTrackPieceDefinitionById(const FString& ContentId) const
 {
@@ -177,8 +184,8 @@ UTrackPieceDefinition* ATrackGenerator::FindTrackPieceDefinitionById(const FStri
 
 void ATrackGenerator::SpawnNextSequencePiece()
 {
-	if (!bTrackSequenceLoaded || CurrentPieceIndex >= TrackSequenceData.PieceIds.Num()) return;
-	FString PieceId = TrackSequenceData.PieceIds[CurrentPieceIndex];
+	if (!bTrackSequenceLoaded || CurrentPieceIndex >= TrackSequenceData.Pieces.Num()) return;
+	FString PieceId = TrackSequenceData.Pieces[CurrentPieceIndex].PieceId;
 	UTrackPieceDefinition* D = FindTrackPieceDefinitionById(PieceId);
 	if (!D) { 
 		UE_LOG(LogTemp, Error, TEXT("TrackGenerator: Failed to find definition for PieceId: %s"), *PieceId);
@@ -204,6 +211,10 @@ void ATrackGenerator::SpawnNextSequencePiece()
 		TotalTrackPiecesSpawned++; 
 		LastSpawnPosition = NP->GetEndConnectionWorldPosition().X; 
 		PieceIdMap.Add(NP, PieceId); 
+        
+        // Pass prescribed spawns to the piece
+        NP->SetPrescribedSpawns(TrackSequenceData.Pieces[CurrentPieceIndex].PrescribedSpawns);
+        
 		CurrentPieceIndex++; 
 		
 		UE_LOG(LogTemp, Log, TEXT("TrackGenerator: Spawned sequence piece %d: %s at X=%.2f"), 
@@ -240,7 +251,7 @@ void ATrackGenerator::CleanupOldPieces()
 
 UTrackPieceDefinition* ATrackGenerator::FindFirstPieceDefinition() const
 {
-	for (UTrackPieceDefinition* D : TrackPieceDefinitions) if (D && D->bIsFirstPiece) return D;
+	for (UTrackPieceDefinition* D : TrackPieceDefinitions) if (D && D->PieceType == ETrackPieceType::Start) return D;
 	return nullptr;
 }
 
@@ -251,11 +262,11 @@ UTrackPieceDefinition* ATrackGenerator::SelectTrackPieceDefinition()
 	{
 		if (!D) continue;
 		
-		// In finite mode, we don't pick Start pieces randomly
-		if (bTrackSequenceLoaded && D->PieceType == ETrackPieceType::Start) continue;
+		// Start pieces are never picked randomly (only used at sequence start or initialization)
+		if (D->PieceType == ETrackPieceType::Start) continue;
 
 		bool bValidType = (D->PieceType == ETrackPieceType::Normal);
-		if (bEndlessMode && (D->PieceType == ETrackPieceType::Boss || D->PieceType == ETrackPieceType::Start)) bValidType = true;
+		if (bEndlessMode && D->PieceType == ETrackPieceType::Boss) bValidType = true;
 		
 		if (bValidType && D->MinDifficulty <= CurrentDifficulty && (D->MaxDifficulty < 0 || D->MaxDifficulty >= CurrentDifficulty))
 		{ Valid.Add(D); TW += D->SelectionWeight; }

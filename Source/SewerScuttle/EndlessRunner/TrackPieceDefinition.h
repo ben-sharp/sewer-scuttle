@@ -90,10 +90,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition")
 	ETrackPieceType PieceType = ETrackPieceType::Normal;
 
-	/** Is this the first piece of the track? */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition")
-	bool bIsFirstPiece = false;
-
 	/** Length of track piece */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition", meta = (ClampMin = "100.0", ClampMax = "10000.0"))
 	float Length = 1000.0f;

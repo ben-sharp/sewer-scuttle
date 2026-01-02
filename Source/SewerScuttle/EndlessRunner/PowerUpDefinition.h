@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
+#include "BaseContentDefinition.h"
 #include "PlayerClass.h"
 #include "GameplayTagContainer.h"
 #include "PowerUpDefinition.generated.h"
@@ -43,11 +43,13 @@ namespace TrackTierUtils
  * Defines properties for a game power-up
  */
 UCLASS(BlueprintType)
-class SEWERSCUTTLE_API UPowerUpDefinition : public UDataAsset
+class SEWERSCUTTLE_API UPowerUpDefinition : public UBaseContentDefinition
 {
 	GENERATED_BODY()
 
 public:
+	virtual EContentType GetContentType() const override { return EContentType::PowerUp; }
+
 	/** Human-readable name */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
 	FString PowerUpName;
@@ -79,10 +81,6 @@ public:
 	/** Relative probability of being selected */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
 	float SelectionWeight = 1.0f;
-
-	/** Classes this power-up is allowed to appear for (empty = all) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
-	TArray<EPlayerClass> AllowedClasses;
 
     /** Which difficulty tiers this powerup can appear in */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop", meta = (ToolTip = "Which tiers this powerup can appear in shops"))

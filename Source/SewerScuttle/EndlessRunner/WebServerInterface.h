@@ -79,6 +79,20 @@ struct FTrackSelectionData
 	TArray<FTrackInfo> Tracks;
 };
 
+/** Track piece with prescribed spawns */
+USTRUCT(BlueprintType)
+struct FTrackPiecePrescription
+{
+    GENERATED_BODY()
+
+    UPROPERTY(BlueprintReadWrite)
+    FString PieceId;
+
+    /** Map of component name to specific definition ID to spawn */
+    UPROPERTY(BlueprintReadWrite)
+    TMap<FString, FString> PrescribedSpawns;
+};
+
 /** Track sequence data (from /runs/select-track) */
 USTRUCT(BlueprintType)
 struct FTrackSequenceData
@@ -86,7 +100,7 @@ struct FTrackSequenceData
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<FString> PieceIds;
+	TArray<FTrackPiecePrescription> Pieces;
 
 	UPROPERTY(BlueprintReadWrite)
 	TArray<int32> ShopPositions;

@@ -68,6 +68,9 @@ void APowerUp::Collect(ARabbitCharacter* Player)
 
 	bCollected = true;
 
+	// Apply GAS effects
+	ApplyGASPowerUp(Player);
+
 	// Call blueprint event
 	OnPowerUpCollected(Player);
 
@@ -104,6 +107,12 @@ void APowerUp::ApplyGASPowerUp(ARabbitCharacter* Player)
 		return;
 	}
 
+	if (!StatTypeToModify.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("PowerUp: '%s' has an invalid/None StatTypeToModify tag! Please check the Data Asset."), *GetName());
+		return;
+	}
+
 	UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent();
 
 	// Apply permanent stat modifier if set
@@ -118,6 +127,7 @@ void APowerUp::ApplyGASPowerUp(ARabbitCharacter* Player)
 			// Set the modification value using SetByCaller
 			if (StatTypeToModify.IsValid())
 			{
+				UE_LOG(LogTemp, Warning, TEXT("PowerUp: '%s' setting permanent magnitude for tag '%s' to %.2f"), *GetName(), *StatTypeToModify.ToString(), ModificationValue);
 				SpecHandle.Data->SetSetByCallerMagnitude(StatTypeToModify, ModificationValue);
 			}
 
@@ -140,6 +150,7 @@ void APowerUp::ApplyGASPowerUp(ARabbitCharacter* Player)
 			// Set the modification value using SetByCaller
 			if (StatTypeToModify.IsValid())
 			{
+				UE_LOG(LogTemp, Warning, TEXT("PowerUp: '%s' setting temporary magnitude for tag '%s' to %.2f"), *GetName(), *StatTypeToModify.ToString(), ModificationValue);
 				SpecHandle.Data->SetSetByCallerMagnitude(StatTypeToModify, ModificationValue);
 			}
 

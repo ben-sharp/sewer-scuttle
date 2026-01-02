@@ -163,12 +163,30 @@ void UWebServerInterface::OnTrackSequenceResponse(int32 ResponseCode, const FStr
 		{
 			FTrackSequenceData SequenceData;
 			
-			const TArray<TSharedPtr<FJsonValue>>* PieceIdsArray;
-			if (JsonObject->TryGetArrayField(TEXT("piece_ids"), PieceIdsArray))
+			const TArray<TSharedPtr<FJsonValue>>* PiecesArray;
+			if (JsonObject->TryGetArrayField(TEXT("pieces"), PiecesArray))
 			{
-				for (const TSharedPtr<FJsonValue>& Value : *PieceIdsArray)
+				for (const TSharedPtr<FJsonValue>& Value : *PiecesArray)
 				{
-					SequenceData.PieceIds.Add(Value->AsString());
+                    if (Value->Type == EJson::Object)
+                    {
+                        TSharedPtr<FJsonObject> PieceObj = Value->AsObject();
+                        FTrackPiecePrescription Prescription;
+                        Prescription.PieceId = PieceObj->GetStringField(TEXT("id"));
+                        
+                        const TSharedPtr<FJsonObject>* SpawnMap;
+                        if (PieceObj->TryGetObjectField(TEXT("spawns"), SpawnMap) && SpawnMap->IsValid())
+                        {
+                            for (auto& Pair : (*SpawnMap)->Values)
+                            {
+                                if (Pair.Value->Type == EJson::String)
+                                {
+                                    Prescription.PrescribedSpawns.Add(Pair.Key, Pair.Value->AsString());
+                                }
+                            }
+                        }
+                        SequenceData.Pieces.Add(Prescription);
+                    }
 				}
 			}
 

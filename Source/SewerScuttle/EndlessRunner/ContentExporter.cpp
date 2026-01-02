@@ -7,9 +7,6 @@
 #include "PowerUpDefinition.h"
 #include "CollectibleDefinition.h"
 #include "PlayerClass.h"
-#include "ObstacleSpawnComponent.h"
-#include "PowerUpSpawnComponent.h"
-#include "CollectibleSpawnComponent.h"
 #include "Obstacle.h"
 #include "PowerUp.h"
 #include "CollectibleCoin.h"
@@ -40,7 +37,6 @@ FString UContentExporter::ExportToJson(UContentRegistry* Registry, const FString
 		PropsObj->SetNumberField(TEXT("length"), Def->Length);
 		PropsObj->SetNumberField(TEXT("lane_width"), Def->LaneWidth);
 		PropsObj->SetStringField(TEXT("piece_type"), TrackPieceUtils::ToString(Def->PieceType));
-		PropsObj->SetBoolField(TEXT("is_first_piece"), Def->bIsFirstPiece);
 
 		// Export Spawn Configs
 		TArray<TSharedPtr<FJsonValue>> SpawnConfigsArray;
@@ -55,128 +51,53 @@ FString UContentExporter::ExportToJson(UContentRegistry* Registry, const FString
 
 				for (UActorComponent* Comp : Components)
 				{
-					TSharedPtr<FJsonObject> SpawnConfigObj = nullptr;
-
-					if (UObstacleSpawnComponent* ObsComp = Cast<UObstacleSpawnComponent>(Comp))
+					if (USmartSpawnComponent* SmartComp = Cast<USmartSpawnComponent>(Comp))
 					{
-						SpawnConfigObj = MakeShareable(new FJsonObject);
-						SpawnConfigObj->SetStringField(TEXT("spawn_type"), TEXT("Obstacle"));
-						
-						TArray<TSharedPtr<FJsonValue>> WeightedArray;
-						for (const FWeightedDefinition& WD : ObsComp->ObstacleDefinitions)
-						{
-							if (!WD.Definition) continue;
-							TSharedPtr<FJsonObject> WObj = MakeShareable(new FJsonObject);
-							WObj->SetStringField(TEXT("id"), WD.Definition->GetName());
-							WObj->SetNumberField(TEXT("weight"), WD.Weight);
-							WeightedArray.Add(MakeShareable(new FJsonValueObject(WObj)));
-						}
-						SpawnConfigObj->SetArrayField(TEXT("weighted_definitions"), WeightedArray);
-						
-						// Export first valid class as fallback for legacy backend fields
-						FString FallbackClass = TEXT("");
-						TArray<FString> AllowedClasses;
-						
-						for (const FWeightedDefinition& WD : ObsComp->ObstacleDefinitions)
-						{
-							if (UObstacleDefinition* OD = Cast<UObstacleDefinition>(WD.Definition))
-							{
-								if (OD->ObstacleClass) { FallbackClass = OD->ObstacleClass->GetName(); }
-								for (EPlayerClass PC : OD->AllowedClasses) AllowedClasses.AddUnique(FPlayerClassData::PlayerClassToString(PC));
-							}
-						}
-						SpawnConfigObj->SetStringField(TEXT("spawn_class"), FallbackClass);
-						
-						TArray<TSharedPtr<FJsonValue>> AllowedClassesJson;
-						for (const FString& AC : AllowedClasses) AllowedClassesJson.Add(MakeShareable(new FJsonValueString(AC)));
-						SpawnConfigObj->SetArrayField(TEXT("allowed_classes"), AllowedClassesJson);
-						
-						SpawnConfigObj->SetNumberField(TEXT("probability"), ObsComp->SpawnProbability);
-					}
-					else if (UPowerUpSpawnComponent* PUComp = Cast<UPowerUpSpawnComponent>(Comp))
-					{
-						SpawnConfigObj = MakeShareable(new FJsonObject);
-						SpawnConfigObj->SetStringField(TEXT("spawn_type"), TEXT("PowerUp"));
-						
-						TArray<TSharedPtr<FJsonValue>> WeightedArray;
-						for (const FWeightedDefinition& WD : PUComp->PowerUpDefinitions)
-						{
-							if (!WD.Definition) continue;
-							TSharedPtr<FJsonObject> WObj = MakeShareable(new FJsonObject);
-							WObj->SetStringField(TEXT("id"), WD.Definition->GetName());
-							WObj->SetNumberField(TEXT("weight"), WD.Weight);
-							WeightedArray.Add(MakeShareable(new FJsonValueObject(WObj)));
-						}
-						SpawnConfigObj->SetArrayField(TEXT("weighted_definitions"), WeightedArray);
-
-						FString FallbackClass = TEXT("");
-						TArray<FString> AllowedClasses;
-						
-						for (const FWeightedDefinition& WD : PUComp->PowerUpDefinitions)
-						{
-							if (UPowerUpDefinition* PD = Cast<UPowerUpDefinition>(WD.Definition))
-							{
-								if (PD->PowerUpClass) { FallbackClass = PD->PowerUpClass->GetName(); }
-								for (EPlayerClass PC : PD->AllowedClasses) AllowedClasses.AddUnique(FPlayerClassData::PlayerClassToString(PC));
-							}
-						}
-						SpawnConfigObj->SetStringField(TEXT("spawn_class"), FallbackClass);
-						
-						TArray<TSharedPtr<FJsonValue>> AllowedClassesJson;
-						for (const FString& AC : AllowedClasses) AllowedClassesJson.Add(MakeShareable(new FJsonValueString(AC)));
-						SpawnConfigObj->SetArrayField(TEXT("allowed_classes"), AllowedClassesJson);
-						
-						SpawnConfigObj->SetNumberField(TEXT("probability"), PUComp->SpawnProbability);
-					}
-					else if (UCollectibleSpawnComponent* ColComp = Cast<UCollectibleSpawnComponent>(Comp))
-					{
-						SpawnConfigObj = MakeShareable(new FJsonObject);
-						SpawnConfigObj->SetStringField(TEXT("spawn_type"), TEXT("Coin"));
-						
-						TArray<TSharedPtr<FJsonValue>> WeightedArray;
-						for (const FWeightedDefinition& WD : ColComp->CollectibleDefinitions)
-						{
-							if (!WD.Definition) continue;
-							TSharedPtr<FJsonObject> WObj = MakeShareable(new FJsonObject);
-							WObj->SetStringField(TEXT("id"), WD.Definition->GetName());
-							WObj->SetNumberField(TEXT("weight"), WD.Weight);
-							WeightedArray.Add(MakeShareable(new FJsonValueObject(WObj)));
-						}
-						SpawnConfigObj->SetArrayField(TEXT("weighted_definitions"), WeightedArray);
-
-						FString FallbackClass = TEXT("");
-						TArray<FString> AllowedClasses;
-						
-						for (const FWeightedDefinition& WD : ColComp->CollectibleDefinitions)
-						{
-							if (UCollectibleDefinition* CD = Cast<UCollectibleDefinition>(WD.Definition))
-							{
-								if (CD->CollectibleClass) { FallbackClass = CD->CollectibleClass->GetName(); }
-								for (EPlayerClass PC : CD->AllowedClasses) AllowedClasses.AddUnique(FPlayerClassData::PlayerClassToString(PC));
-							}
-						}
-						SpawnConfigObj->SetStringField(TEXT("spawn_class"), FallbackClass);
-						
-						TArray<TSharedPtr<FJsonValue>> AllowedClassesJson;
-						for (const FString& AC : AllowedClasses) AllowedClassesJson.Add(MakeShareable(new FJsonValueString(AC)));
-						SpawnConfigObj->SetArrayField(TEXT("allowed_classes"), AllowedClassesJson);
-						
-						SpawnConfigObj->SetNumberField(TEXT("probability"), ColComp->CollectibleDefinitions.Num() > 0 ? ColComp->SpawnProbability : 0.0f);
-					}
-
-					if (SpawnConfigObj.IsValid())
-					{
-						USceneComponent* SceneComp = Cast<USceneComponent>(Comp);
+						TSharedPtr<FJsonObject> SpawnConfigObj = MakeShareable(new FJsonObject);
 						SpawnConfigObj->SetStringField(TEXT("component_name"), Comp->GetName());
-						
-						// Try to determine lane based on Y position (-200, 0, 200)
-						float Y = SceneComp->GetRelativeLocation().Y;
-						int32 Lane = 1; // Center
-						if (Y < -100.0f) Lane = 0;
-						else if (Y > 100.0f) Lane = 2;
-						
+						SpawnConfigObj->SetStringField(TEXT("spawn_type"), TEXT("Mixed")); // Now polymorphic
+						SpawnConfigObj->SetNumberField(TEXT("probability"), SmartComp->SpawnProbability);
+
+						TArray<TSharedPtr<FJsonValue>> WeightedArray;
+						TArray<FString> CombinedAllowedClasses;
+						FString FallbackClass = TEXT("");
+
+						for (const FWeightedDefinition& WD : SmartComp->Definitions)
+						{
+							if (!WD.Definition) continue;
+
+							TSharedPtr<FJsonObject> WObj = MakeShareable(new FJsonObject);
+							WObj->SetStringField(TEXT("id"), WD.Definition->GetName());
+							WObj->SetNumberField(TEXT("weight"), WD.Weight);
+							WeightedArray.Add(MakeShareable(new FJsonValueObject(WObj)));
+
+							// Collect allowed classes and fallback class from definitions
+							for (EPlayerClass PC : WD.Definition->AllowedClasses)
+							{
+								CombinedAllowedClasses.AddUnique(FPlayerClassData::PlayerClassToString(PC));
+							}
+
+							if (FallbackClass.IsEmpty())
+							{
+								if (UObstacleDefinition* OD = Cast<UObstacleDefinition>(WD.Definition)) FallbackClass = OD->ObstacleClass ? OD->ObstacleClass->GetName() : TEXT("");
+								else if (UPowerUpDefinition* PD = Cast<UPowerUpDefinition>(WD.Definition)) FallbackClass = PD->PowerUpClass ? PD->PowerUpClass->GetName() : TEXT("");
+								else if (UCollectibleDefinition* CD = Cast<UCollectibleDefinition>(WD.Definition)) FallbackClass = CD->CollectibleClass ? CD->CollectibleClass->GetName() : TEXT("");
+							}
+						}
+
+						SpawnConfigObj->SetArrayField(TEXT("weighted_definitions"), WeightedArray);
+						SpawnConfigObj->SetStringField(TEXT("spawn_class"), FallbackClass);
+
+						TArray<TSharedPtr<FJsonValue>> AllowedClassesJson;
+						for (const FString& AC : CombinedAllowedClasses) AllowedClassesJson.Add(MakeShareable(new FJsonValueString(AC)));
+						SpawnConfigObj->SetArrayField(TEXT("allowed_classes"), AllowedClassesJson);
+
+						// Position
+						float Y = SmartComp->GetRelativeLocation().Y;
+						int32 Lane = (Y < -100.0f) ? 0 : ((Y > 100.0f) ? 2 : 1);
 						SpawnConfigObj->SetNumberField(TEXT("lane"), Lane);
-						SpawnConfigObj->SetNumberField(TEXT("forward_position"), SceneComp->GetRelativeLocation().X);
+						SpawnConfigObj->SetNumberField(TEXT("forward_position"), SmartComp->GetRelativeLocation().X);
+
 						SpawnConfigsArray.Add(MakeShareable(new FJsonValueObject(SpawnConfigObj)));
 					}
 				}
@@ -184,7 +105,6 @@ FString UContentExporter::ExportToJson(UContentRegistry* Registry, const FString
 		}
 		
 		PropsObj->SetArrayField(TEXT("spawn_configs"), SpawnConfigsArray);
-		
 		DefObj->SetObjectField(TEXT("properties"), PropsObj);
 		DefinitionsArray.Add(MakeShareable(new FJsonValueObject(DefObj)));
 	}
@@ -284,4 +204,3 @@ bool UContentExporter::ExportToFile(UContentRegistry* Registry, const FString& V
 
 	return FFileHelper::SaveStringToFile(JsonString, *FilePath);
 }
-

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
+#include "BaseContentDefinition.h"
 #include "PlayerClass.h"
 #include "CollectibleDefinition.generated.h"
 
@@ -11,11 +11,13 @@
  * Defines properties for a collectible item
  */
 UCLASS(BlueprintType)
-class SEWERSCUTTLE_API UCollectibleDefinition : public UDataAsset
+class SEWERSCUTTLE_API UCollectibleDefinition : public UBaseContentDefinition
 {
 	GENERATED_BODY()
 
 public:
+	virtual EContentType GetContentType() const override { return EContentType::Coin; }
+
 	/** Human-readable name */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
 	FString CollectibleName;
@@ -43,9 +45,5 @@ public:
 	/** Relative probability of being selected */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
 	float SelectionWeight = 1.0f;
-
-	/** Classes this collectible is allowed to appear for (empty = all) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
-	TArray<EPlayerClass> AllowedClasses;
 };
 

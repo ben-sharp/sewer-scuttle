@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "PlayerClass.h"
+#include "BaseContentDefinition.h"
 #include "TrackPiece.generated.h"
 
 class UStaticMeshComponent;
@@ -38,21 +40,6 @@ namespace SpawnPointUtils
 	}
 }
 
-/** Struct for weighted selection of a content definition */
-USTRUCT(BlueprintType)
-struct FWeightedDefinition
-{
-	GENERATED_BODY()
-
-	/** The definition data asset (Obstacle, PowerUp, or Collectible) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UDataAsset* Definition = nullptr;
-
-	/** Relative weight for selection (higher = more likely) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0"))
-	float Weight = 1.0f;
-};
-
 USTRUCT(BlueprintType)
 struct FSpawnPoint
 {
@@ -66,13 +53,13 @@ struct FSpawnPoint
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float ForwardPosition = 0.0f;
 
-	/** Type of spawn point */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	ESpawnPointType SpawnType = ESpawnPointType::Coin;
-
 	/** Possible definitions that can spawn here with weights (from components) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FWeightedDefinition> WeightedDefinitions;
+
+	/** Probability of ANY content spawning at this point (0.0 to 1.0) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float SpawnProbability = 1.0f;
 
 	/** Optional: Name of a Scene component in the track piece to use as spawn position (overrides Lane/ForwardPosition) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -143,6 +130,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "!Track")
 	void SetEndConnectionsByNames(const TArray<FString>& ComponentNames);
 
+	/** Set prescribed spawns from server */
+	void SetPrescribedSpawns(const TMap<FString, FString>& Spawns) { PrescribedSpawns = Spawns; bHasPrescribedSpawns = true; }
+
+	/** Get prescribed spawn for a component */
+	FString GetPrescribedSpawn(const FString& ComponentName) const { const FString* S = PrescribedSpawns.Find(ComponentName); return S ? *S : TEXT(""); }
+
+	/** Check if this piece has server-prescribed spawns */
+	bool HasPrescribedSpawns() const { return bHasPrescribedSpawns; }
+
 	/** Get world position of start connection point */
 	UFUNCTION(BlueprintPure, Category = "!Track")
 	FVector GetStartConnectionWorldPosition() const;
@@ -155,6 +151,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "!Track")
 	FVector GetEndConnectionWorldPositionByIndex(int32 Index) const;
 
+	/** Register a spawned actor (coin, obstacle, powerup, etc.) to be destroyed with this track piece */
+	UFUNCTION(BlueprintCallable, Category = "!Track")
+	void RegisterSpawnedActor(AActor* SpawnedActor);
+
+	/** Clear all spawned actors (called when track piece is destroyed) */
+	void ClearSpawnedActors();
+
 	/** Find a Scene component by name (uses cached lookup for performance) */
 	UFUNCTION(BlueprintPure, Category = "!Track")
 	USceneComponent* FindComponentByName(const FString& ComponentName) const;
@@ -166,13 +169,6 @@ public:
 	/** Draw lane visualization (for editor/runtime debugging) */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "!Track|Debug")
 	void DrawLaneVisualization(float Duration = 0.0f, float Height = 0.0f);
-
-	/** Register a spawned actor (coin, obstacle, powerup, etc.) to be destroyed with this track piece */
-	UFUNCTION(BlueprintCallable, Category = "!Track")
-	void RegisterSpawnedActor(AActor* SpawnedActor);
-
-	/** Clear all spawned actors (called when track piece is destroyed) */
-	void ClearSpawnedActors();
 
 protected:
 	virtual void BeginDestroy() override;
@@ -204,8 +200,35 @@ protected:
 	UPROPERTY()
 	TArray<AActor*> SpawnedActors;
 
+	/** Prescribed spawns from server (ComponentName -> DefID) */
+	UPROPERTY()
+	TMap<FString, FString> PrescribedSpawns;
+
+	/** Flag indicating if this piece has prescribed spawns from the server */
+	UPROPERTY()
+	bool bHasPrescribedSpawns = false;
+
 	/** Cached component lookup map (name -> component) for fast access */
 	UPROPERTY()
 	TMap<FString, USceneComponent*> ComponentCache;
 };
 
+/**
+ * Unified smart spawn component for any content type
+ */
+UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+class SEWERSCUTTLE_API USmartSpawnComponent : public USceneComponent
+{
+	GENERATED_BODY()
+
+public:
+	USmartSpawnComponent();
+
+	/** Weighted definitions that can spawn at this point (can mix Obstacles, PowerUps, and Coins) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+	TArray<FWeightedDefinition> Definitions;
+
+	/** Probability of ANY content spawning at this point (0.0 to 1.0) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float SpawnProbability = 1.0f;
+};

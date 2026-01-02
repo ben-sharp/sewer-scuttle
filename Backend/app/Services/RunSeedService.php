@@ -83,10 +83,10 @@ class RunSeedService
         
         // Generate the actual piece sequence for this track
         // We do this on-demand to keep the cached seed smaller, but it's still deterministic
-        $sequence = $this->generatePieceSequence($track, $runData['seed'] + $tier + $trackIndex);
+        $sequence = $this->generatePieceSequence($track, $runData['seed'] + $tier + $trackIndex, $runData['player_class'] ?? 'Vanilla');
 
         return [
-            'piece_ids' => $sequence['piece_ids'],
+            'pieces' => $sequence['pieces'],
             'shop_positions' => $sequence['shop_positions'],
             'boss_id' => $track['boss_id'],
             'length' => $track['length'],
@@ -104,10 +104,14 @@ class RunSeedService
         // Get available bosses for this tier
         $bosses = ContentDefinition::where('content_type', 'track_piece')
             ->where('is_active', true)
-            ->whereJsonContains('properties->piece_type', 'Boss')
-            ->get();
+            ->get()
+            ->filter(fn($p) => ($p->properties['piece_type'] ?? '') === 'Boss');
         
-        $bossId = $bosses->count() > 0 ? $bosses->random()->content_id : 'Boss_Generic';
+        $bossId = 'Boss_Generic';
+        if ($bosses->count() > 0) {
+            $index = mt_rand(0, $bosses->count() - 1);
+            $bossId = $bosses->values()->get($index)->content_id;
+        }
 
         for ($i = 0; $i < 3; $i++) {
             $targetLength = mt_rand($lengths['min'], $lengths['max']);
@@ -124,72 +128,122 @@ class RunSeedService
         return $tracks;
     }
 
-    protected function generatePieceSequence(array $track, int $seed): array
+    protected function generatePieceSequence(array $track, int $seed, string $playerClass = 'Vanilla'): array
     {
         mt_srand($seed);
-        $pieceIds = [];
+        $pieces = [];
         $shopPositions = [];
         $currentLength = 0;
 
-        // Add Start piece at the beginning
+        // Add Start piece
         $startPieces = ContentDefinition::where('content_type', 'track_piece')
             ->where('is_active', true)
-            ->whereJsonContains('properties->piece_type', 'Start')
-            ->get();
+            ->get()
+            ->filter(fn($p) => ($p->properties['piece_type'] ?? '') === 'Start');
         
         if ($startPieces->count() > 0) {
-            $piece = $startPieces->random();
-            $pieceIds[] = $piece->content_id;
+            $index = mt_rand(0, $startPieces->count() - 1);
+            $piece = $startPieces->values()->get($index);
+            $pieces[] = $this->prescribeSpawns($piece, $playerClass);
             $currentLength += ($piece->properties['length'] ?? 800) / 800.0;
         }
 
-        // Get normal pieces
+        // Get normal pieces (strictly exclude Start, Shop, Boss)
         $normalPieces = ContentDefinition::where('content_type', 'track_piece')
             ->where('is_active', true)
-            ->whereJsonContains('properties->piece_type', 'Normal')
-            ->get();
+            ->get()
+            ->filter(fn($p) => ($p->properties['piece_type'] ?? 'Normal') === 'Normal');
 
-        if ($normalPieces->isEmpty()) {
-            return ['piece_ids' => [], 'shop_positions' => []];
-        }
+        if ($normalPieces->isEmpty()) return ['pieces' => [], 'shop_positions' => []];
 
-        // Fill with normal pieces until target length reached
         while ($currentLength < $track['length']) {
-            $piece = $normalPieces->random();
-            $pieceIds[] = $piece->content_id;
+            $index = mt_rand(0, $normalPieces->count() - 1);
+            $piece = $normalPieces->values()->get($index);
+            $pieces[] = $this->prescribeSpawns($piece, $playerClass);
             $currentLength += ($piece->properties['length'] ?? 800) / 800.0;
         }
 
-        // Place shops at 50-70% through
-        $config = config('game.tracks');
-        $range = $config['shop_position_range'] ?? [0.5, 0.7];
-        
+        // Place shops
         $shopPieces = ContentDefinition::where('content_type', 'track_piece')
             ->where('is_active', true)
-            ->whereJsonContains('properties->piece_type', 'Shop')
-            ->get();
+            ->get()
+            ->filter(fn($p) => ($p->properties['piece_type'] ?? '') === 'Shop');
 
         if ($shopPieces->count() > 0) {
+            $config = config('game.tracks');
+            $range = $config['shop_position_range'] ?? [0.5, 0.7];
             for ($s = 0; $s < $track['shop_count']; $s++) {
                 $progress = $range[0] + (($range[1] - $range[0]) * ($s / max(1, $track['shop_count'] - 1)));
-                $pos = (int)(count($pieceIds) * $progress);
-                
-                // Ensure unique positions
+                $pos = (int)(count($pieces) * $progress);
                 while (in_array($pos, $shopPositions)) $pos++;
-                
-                if ($pos < count($pieceIds)) {
+                if ($pos < count($pieces)) {
                     $shopPositions[] = $pos;
-                    $pieceIds[$pos] = $shopPieces->random()->content_id;
+                    $shopIndex = mt_rand(0, $shopPieces->count() - 1);
+                    $pieces[$pos] = $this->prescribeSpawns($shopPieces->values()->get($shopIndex), $playerClass);
                 }
             }
         }
 
-        // Add boss piece at the end
-        $pieceIds[] = $track['boss_id'];
+        // Add Boss
+        $bossPiece = ContentDefinition::where('content_id', $track['boss_id'])->first();
+        if ($bossPiece) $pieces[] = $this->prescribeSpawns($bossPiece, $playerClass);
 
         return [
-            'piece_ids' => $pieceIds,
+            'pieces' => $pieces,
             'shop_positions' => $shopPositions,
+        ];
+    }
+
+    protected function prescribeSpawns(ContentDefinition $piece, string $playerClass): array
+    {
+        $spawnMap = [];
+        $configs = $piece->properties['spawn_configs'] ?? [];
+
+        foreach ($configs as $config) {
+            $compName = $config['component_name'] ?? null;
+            if (!$compName) continue;
+
+            // Roll probability
+            if (mt_rand(0, 1000) / 1000.0 > ($config['probability'] ?? 1.0)) {
+                $spawnMap[$compName] = null;
+                continue;
+            }
+
+            // Roll weighted selection
+            $weighted = $config['weighted_definitions'] ?? [];
+            $valid = [];
+            $totalWeight = 0;
+
+            foreach ($weighted as $wd) {
+                $defId = $wd['id'];
+                $def = ContentDefinition::where('content_id', $defId)->first();
+                if (!$def) continue;
+
+                $allowed = $def->properties['allowed_classes'] ?? [];
+                if (count($allowed) === 0 || in_array($playerClass, $allowed)) {
+                    $valid[] = $wd;
+                    $totalWeight += $wd['weight'] ?? 1.0;
+                }
+            }
+
+            if ($totalWeight > 0) {
+                $roll = mt_rand(0, $totalWeight * 1000) / 1000.0;
+                $current = 0;
+                foreach ($valid as $wd) {
+                    $current += $wd['weight'] ?? 1.0;
+                    if ($roll <= $current) {
+                        $spawnMap[$compName] = $wd['id'];
+                        break;
+                    }
+                }
+            } else {
+                $spawnMap[$compName] = null;
+            }
+        }
+
+        return [
+            'id' => $piece->content_id,
+            'spawns' => (object)$spawnMap // Ensure it's an object even if empty
         ];
     }
 
@@ -214,8 +268,16 @@ class RunSeedService
             $powerups = ContentDefinition::where('content_type', 'powerup')->where('is_active', true)->get();
         }
 
-        $items = [];
-        $selected = $powerups->count() > $itemCount ? $powerups->random($itemCount) : $powerups;
+        $selected = $powerups;
+        if ($powerups->count() > $itemCount) {
+            $selected = collect();
+            $tempList = $powerups->values()->all();
+            for ($i = 0; $i < $itemCount; $i++) {
+                $idx = mt_rand(0, count($tempList) - 1);
+                $selected->push($tempList[$idx]);
+                array_splice($tempList, $idx, 1);
+            }
+        }
 
         foreach ($selected as $pu) {
             $baseCost = $pu->properties['base_cost'] ?? 100;
@@ -253,8 +315,16 @@ class RunSeedService
             $powerups = ContentDefinition::where('content_type', 'powerup')->where('is_active', true)->get();
         }
 
-        $rewards = [];
-        $selected = $powerups->count() > $rewardCount ? $powerups->random($rewardCount) : $powerups;
+        $selected = $powerups;
+        if ($powerups->count() > $rewardCount) {
+            $selected = collect();
+            $tempList = $powerups->values()->all();
+            for ($i = 0; $i < $rewardCount; $i++) {
+                $idx = mt_rand(0, count($tempList) - 1);
+                $selected->push($tempList[$idx]);
+                array_splice($tempList, $idx, 1);
+            }
+        }
 
         foreach ($selected as $pu) {
             $rewards[] = [

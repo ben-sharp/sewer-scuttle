@@ -210,6 +210,10 @@ public:
 	/** Get seeded random stream (for use by TrackGenerator and SpawnManager) */
 	FRandomStream& GetSeededRandomStream() { return SeededRandomStream; }
 
+	/** Check if track sequence is loaded (seeded run) */
+	UFUNCTION(BlueprintPure, Category = "Track Progression")
+	bool IsTrackSequenceLoaded() const { return bTrackSequenceLoaded; }
+
 	/** Handle seed received from server */
 	UFUNCTION()
 	void OnSeedReceived(const FRunSeedData& SeedData);
@@ -467,6 +471,9 @@ protected:
 
 	/** Full sequence of piece IDs spawned in this run */
 	TArray<FString> FullPieceSequence;
+
+	/** Flag indicating if track sequence is loaded (seeded run) */
+	bool bTrackSequenceLoaded = false;
 
 	/** Is the player in endless mode */
 	bool bIsEndlessMode = false;

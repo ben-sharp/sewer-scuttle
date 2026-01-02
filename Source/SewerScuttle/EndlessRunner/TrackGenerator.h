@@ -61,6 +61,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Track")
 	int32 GetTotalTrackPiecesSpawned() const { return TotalTrackPiecesSpawned; }
 
+	/** Get current piece sequence IDs */
+	TArray<FString> GetCurrentPieceIds() const;
+
 	/** Load a finite track sequence */
 	UFUNCTION(BlueprintCallable, Category = "Track")
 	void LoadTrackSequence(const FTrackSequenceData& SequenceData);

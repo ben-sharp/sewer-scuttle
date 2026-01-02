@@ -26,34 +26,22 @@ void USpawnManager::Initialize(AEndlessRunnerGameMode* InGameMode)
 
 void USpawnManager::Update(float DeltaTime)
 {
-	// Spawn manager updates are handled by track generator when pieces are created
 }
 
 void USpawnManager::Reset()
 {
-	// Reset spawn manager state
 }
 
 void USpawnManager::SpawnOnTrackPiece(ATrackPiece* TrackPiece)
 {
-	if (!TrackPiece || !GameMode)
-	{
-		return;
-	}
+	if (!TrackPiece || !GameMode) return;
 
 	UWorld* World = GameMode->GetWorld();
-	if (!World)
-	{
-		return;
-	}
+	if (!World) return;
 
 	UGameplayManager* GameplayManager = GameMode->GetGameplayManager();
-	if (!GameplayManager)
-	{
-		return;
-	}
+	if (!GameplayManager) return;
 
-	// Get spawn points from track piece
 	const TArray<FSpawnPoint>& SpawnPoints = TrackPiece->GetSpawnPoints();
 	FVector TrackPieceLocation = TrackPiece->GetActorLocation();
 
@@ -62,7 +50,6 @@ void USpawnManager::SpawnOnTrackPiece(ATrackPiece* TrackPiece)
 		FVector SpawnLocation;
 		bool bUseComponent = false;
 
-		// Try to find spawn position by component name if provided
 		if (!SpawnPoint.SpawnPositionComponentName.IsEmpty())
 		{
 			if (USceneComponent* SpawnComp = TrackPiece->FindComponentByName(SpawnPoint.SpawnPositionComponentName))
@@ -72,7 +59,6 @@ void USpawnManager::SpawnOnTrackPiece(ATrackPiece* TrackPiece)
 			}
 		}
 
-		// Fallback to Lane/ForwardPosition if no component or not found
 		if (!bUseComponent)
 		{
 			float LaneY = 0.0f;
@@ -86,37 +72,41 @@ void USpawnManager::SpawnOnTrackPiece(ATrackPiece* TrackPiece)
 			SpawnLocation = TrackPieceLocation + FVector(SpawnPoint.ForwardPosition, LaneY, 0.0f);
 		}
 
-		// Use seeded random if available
-		FRandomStream* RandomStream = nullptr;
-		if (GameMode)
-		{
-			RandomStream = &GameMode->GetSeededRandomStream();
-		}
-
-		float RandomValue = RandomStream ? RandomStream->FRand() : FMath::FRand();
+		FRandomStream* RandomStream = &GameMode->GetSeededRandomStream();
+		float RandomValue = RandomStream->FRand();
 		bool bShouldSpawn = false;
+		FString PrescribedId = TEXT("");
 
-		switch (SpawnPoint.SpawnType)
+		// SEEDED RUN: Strictly obey server
+		if (TrackPiece->HasPrescribedSpawns())
 		{
-		case ESpawnPointType::Coin:
-			bShouldSpawn = (RandomValue <= GameplayManager->GetCoinSpawnProbability());
-			break;
-		case ESpawnPointType::PowerUp:
-			bShouldSpawn = (RandomValue <= GameplayManager->GetPowerUpSpawnProbability());
-			break;
-		case ESpawnPointType::Obstacle:
-			bShouldSpawn = (RandomValue <= GameplayManager->GetObstacleSpawnProbability());
-			break;
+			PrescribedId = TrackPiece->GetPrescribedSpawn(SpawnPoint.SpawnPositionComponentName);
+			// Only spawn if server explicitly provided a Definition ID in the map
+			bShouldSpawn = !PrescribedId.IsEmpty();
+		}
+		// ENDLESS MODE: Local deterministic roll
+		else
+		{
+			bShouldSpawn = (RandomValue <= SpawnPoint.SpawnProbability);
 		}
 
 		if (bShouldSpawn)
 		{
-			UDataAsset* SelectedDef = nullptr;
+			UBaseContentDefinition* SelectedDef = nullptr;
 			TSubclassOf<AActor> ClassToSpawn = nullptr;
 			EPlayerClass CurrentClass = GameMode->GetSelectedClass();
 
-			// Logic for weighted selection from definitions
-			if (SpawnPoint.WeightedDefinitions.Num() > 0)
+            if (TrackPiece->HasPrescribedSpawns())
+            {
+                if (UContentRegistry* Registry = GameMode->GetContentRegistry())
+                {
+                    // Search all registries since the spawn point is polymorphic
+					SelectedDef = Registry->FindObstacleById(PrescribedId);
+					if (!SelectedDef) SelectedDef = Registry->FindPowerUpById(PrescribedId);
+					if (!SelectedDef) SelectedDef = Registry->FindCollectibleById(PrescribedId);
+                }
+            }
+			else if (SpawnPoint.WeightedDefinitions.Num() > 0)
 			{
 				TArray<FWeightedDefinition> ValidDefs;
 				float TotalWeight = 0.0f;
@@ -124,24 +114,7 @@ void USpawnManager::SpawnOnTrackPiece(ATrackPiece* TrackPiece)
 				for (const FWeightedDefinition& WD : SpawnPoint.WeightedDefinitions)
 				{
 					if (!WD.Definition) continue;
-
-					bool bClassAllowed = true;
-					
-					// Perform class validation based on the DA type
-					if (UObstacleDefinition* OD = Cast<UObstacleDefinition>(WD.Definition))
-					{
-						if (OD->AllowedClasses.Num() > 0 && !OD->AllowedClasses.Contains(CurrentClass)) bClassAllowed = false;
-					}
-					else if (UPowerUpDefinition* PD = Cast<UPowerUpDefinition>(WD.Definition))
-					{
-						if (PD->AllowedClasses.Num() > 0 && !PD->AllowedClasses.Contains(CurrentClass)) bClassAllowed = false;
-					}
-					else if (UCollectibleDefinition* CD = Cast<UCollectibleDefinition>(WD.Definition))
-					{
-						if (CD->AllowedClasses.Num() > 0 && !CD->AllowedClasses.Contains(CurrentClass)) bClassAllowed = false;
-					}
-
-					if (bClassAllowed)
+					if (WD.Definition->AllowedClasses.Num() == 0 || WD.Definition->AllowedClasses.Contains(CurrentClass))
 					{
 						ValidDefs.Add(WD);
 						TotalWeight += WD.Weight;
@@ -150,21 +123,16 @@ void USpawnManager::SpawnOnTrackPiece(ATrackPiece* TrackPiece)
 
 				if (ValidDefs.Num() > 0 && TotalWeight > 0.0f)
 				{
-					float SelectionRV = RandomStream ? RandomStream->FRandRange(0.0f, TotalWeight) : FMath::FRandRange(0.0f, TotalWeight);
+					float SelectionRV = RandomStream->FRandRange(0.0f, TotalWeight);
 					float CurrentWeightSum = 0.0f;
 					for (const FWeightedDefinition& WD : ValidDefs)
 					{
 						CurrentWeightSum += WD.Weight;
-						if (SelectionRV <= CurrentWeightSum)
-						{
-							SelectedDef = WD.Definition;
-							break;
-						}
+						if (SelectionRV <= CurrentWeightSum) { SelectedDef = WD.Definition; break; }
 					}
 				}
 			}
 
-			// Determine final class to spawn
 			if (SelectedDef)
 			{
 				if (UObstacleDefinition* OD = Cast<UObstacleDefinition>(SelectedDef)) ClassToSpawn = OD->ObstacleClass;
@@ -176,13 +144,10 @@ void USpawnManager::SpawnOnTrackPiece(ATrackPiece* TrackPiece)
 			{
 				FActorSpawnParameters SpawnParams;
 				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
 				AActor* SpawnedActor = World->SpawnActor<AActor>(ClassToSpawn, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
 				if (SpawnedActor)
 				{
 					TrackPiece->RegisterSpawnedActor(SpawnedActor);
-
-					// Apply properties from definition if selected
 					if (SelectedDef)
 					{
 						if (AObstacle* Obstacle = Cast<AObstacle>(SpawnedActor))
@@ -196,11 +161,9 @@ void USpawnManager::SpawnOnTrackPiece(ATrackPiece* TrackPiece)
 							UCollectibleDefinition* CD = Cast<UCollectibleDefinition>(SelectedDef);
 							Coin->SetValue(CD->Value);
 						}
-						// PowerUps apply themselves via definition during collection, usually
 					}
 				}
 			}
 		}
 	}
 }
-

@@ -177,6 +177,8 @@ void AEndlessRunnerGameMode::SetGameState(EGameState NewState)
 void AEndlessRunnerGameMode::StartGame()
 {
 	UE_LOG(LogTemp, Warning, TEXT("GameMode: StartGame() called - Current state: %d"), (int32)RunnerGameState);
+	bIsEndlessMode = false;
+	bTrackSequenceLoaded = false;
 	
 	if (!WebServerInterface)
 	{
@@ -427,8 +429,7 @@ void AEndlessRunnerGameMode::EndGame()
 		TArray<FString> ActualSequence;
 		if (TrackGenerator)
 		{
-			// For now, using the TrackSequence data as base, but could be more detailed
-			ActualSequence = TrackSequence.PieceIds;
+			ActualSequence = TrackGenerator->GetCurrentPieceIds();
 		}
 
 		WebServerInterface->SubmitRun(
@@ -738,8 +739,9 @@ void AEndlessRunnerGameMode::OnSeedRequestError(const FString& M) { TrackSeed = 
 
 void AEndlessRunnerGameMode::OnTrackSequenceReceived(const FTrackSequenceData& SequenceData)
 {
-	UE_LOG(LogTemp, Warning, TEXT("GameMode: OnTrackSequenceReceived called. Pieces: %d, CurrentTier: %d"), SequenceData.PieceIds.Num(), CurrentTier);
+	UE_LOG(LogTemp, Warning, TEXT("GameMode: OnTrackSequenceReceived called. Pieces: %d, CurrentTier: %d"), SequenceData.Pieces.Num(), CurrentTier);
 	TrackSequence = SequenceData;
+	bTrackSequenceLoaded = true;
 	
 	if (CurrentTier > 1) { TotalPreviousDistance = DistanceTraveled; PreviousDistanceForScore = DistanceTraveled; }
 	else { Score = 0; RunCurrency = 0; TrackCurrency = 0; ObstaclesHit = 0; PowerupsUsed = 0; DistanceTraveled = 0.0f; TotalPreviousDistance = 0.0f; PreviousDistanceForScore = 0.0f; GameTime = 0.0f; RunStartTime = FDateTime::Now(); }
@@ -823,23 +825,26 @@ void AEndlessRunnerGameMode::SelectBossReward(const FString& ID)
 	if (CurrentTier >= 3) CompleteRun(); else AdvanceToNextTier();
 }
 
-void AEndlessRunnerGameMode::AdvanceToNextTier() { CurrentTier++; CurrentTrackIndex = 0; TrackSequence.PieceIds.Empty(); TrackSequence.ShopPositions.Empty(); TrackSequence.BossId = TEXT(""); if (WebServerInterface && !SeedId.IsEmpty()) WebServerInterface->RequestTierTracks(SeedId, CurrentTier); }
+void AEndlessRunnerGameMode::AdvanceToNextTier() { CurrentTier++; CurrentTrackIndex = 0; TrackSequence.Pieces.Empty(); TrackSequence.ShopPositions.Empty(); TrackSequence.BossId = TEXT(""); if (WebServerInterface && !SeedId.IsEmpty()) WebServerInterface->RequestTierTracks(SeedId, CurrentTier); }
 void AEndlessRunnerGameMode::CompleteRun() 
 { 
 	if (WebServerInterface && !SeedId.IsEmpty()) 
 	{
+		TArray<FString> PieceIds;
+		for (const FTrackPiecePrescription& P : TrackSequence.Pieces) PieceIds.Add(P.PieceId);
+
 		WebServerInterface->SubmitRun(
 			SeedId, Score, FMath::RoundToInt(GetDistanceTraveled()), FMath::RoundToInt(GameTime), 
 			RunCurrency, ObstaclesHit, PowerupsUsed, 
 			TrackGenerator ? TrackGenerator->GetTotalTrackPiecesSpawned() : 0, 
-			RunStartTime.ToIso8601(), SelectedTrackIndices, true, false, TrackSequence.PieceIds
+			RunStartTime.ToIso8601(), SelectedTrackIndices, true, false, PieceIds
 		); 
 	}
 	SetGameState(EGameState::GameOver); 
 	ShowEndlessModeOption(); 
 }
 void AEndlessRunnerGameMode::ShowEndlessModeOption() { if (AEndlessRunnerHUD* HUD = Cast<AEndlessRunnerHUD>(GetWorld()->GetFirstPlayerController()->GetHUD())) HUD->ShowEndlessModePrompt(); }
-void AEndlessRunnerGameMode::StartEndlessMode() { bIsEndlessMode = true; CurrentTier = 3; if (TrackGenerator) { TrackGenerator->SetCurrentDifficulty(3); TrackGenerator->SetEndlessMode(true); } if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) { PC->SetPause(false); PC->bShowMouseCursor = false; PC->SetInputMode(FInputModeGameOnly()); } SetGameState(EGameState::Playing); }
+void AEndlessRunnerGameMode::StartEndlessMode() { bIsEndlessMode = true; bTrackSequenceLoaded = false; CurrentTier = 3; if (TrackGenerator) { TrackGenerator->SetCurrentDifficulty(3); TrackGenerator->SetEndlessMode(true); } if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) { PC->SetPause(false); PC->bShowMouseCursor = false; PC->SetInputMode(FInputModeGameOnly()); } SetGameState(EGameState::Playing); }
 
 UPowerUpDefinition* AEndlessRunnerGameMode::FindPowerUpDefinitionById(const FString& ID) const
 {

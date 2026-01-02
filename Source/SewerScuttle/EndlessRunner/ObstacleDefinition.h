@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
+#include "BaseContentDefinition.h"
 #include "Obstacle.h"
 #include "PlayerClass.h"
 #include "ObstacleDefinition.generated.h"
@@ -14,11 +14,13 @@ class AObstacle;
  * Defines properties for a game obstacle
  */
 UCLASS(BlueprintType)
-class SEWERSCUTTLE_API UObstacleDefinition : public UDataAsset
+class SEWERSCUTTLE_API UObstacleDefinition : public UBaseContentDefinition
 {
 	GENERATED_BODY()
 
 public:
+	virtual EContentType GetContentType() const override { return EContentType::Obstacle; }
+
 	/** Human-readable name */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
 	FString ObstacleName;
@@ -50,9 +52,5 @@ public:
 	/** Relative probability of being selected */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
 	float SelectionWeight = 1.0f;
-
-	/** Classes this obstacle is allowed to appear for (empty = all) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
-	TArray<EPlayerClass> AllowedClasses;
 };
 
