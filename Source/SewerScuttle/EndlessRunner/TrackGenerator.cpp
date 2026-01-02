@@ -41,27 +41,17 @@ void ATrackGenerator::Tick(float DeltaTime)
 	{
 		if (Piece && !ReachedPieces.Contains(Piece))
 		{
-			// Check if player has reached the middle of the piece
 			if (DistanceTraveled >= Piece->GetActorLocation().X)
 			{
 				ReachedPieces.Add(Piece);
-				
 				FString* PieceId = PieceIdMap.Find(Piece);
 				if (PieceId)
 				{
 					UTrackPieceDefinition* D = FindTrackPieceDefinitionById(*PieceId);
 					if (D)
 					{
-						if (D->PieceType == ETrackPieceType::Shop)
-						{
-							UE_LOG(LogTemp, Warning, TEXT("TrackGenerator: Player reached SHOP piece: %s"), **PieceId);
-							OnShopPieceReached.Broadcast();
-						}
-						else if (D->PieceType == ETrackPieceType::Boss)
-						{
-							UE_LOG(LogTemp, Warning, TEXT("TrackGenerator: Player reached BOSS piece: %s"), **PieceId);
-							OnBossPieceReached.Broadcast();
-						}
+						if (D->PieceType == ETrackPieceType::Shop) OnShopPieceReached.Broadcast();
+						else if (D->PieceType == ETrackPieceType::Boss) OnBossPieceReached.Broadcast();
 					}
 				}
 			}
@@ -72,18 +62,34 @@ void ATrackGenerator::Tick(float DeltaTime)
 	if (SpawnCheckTimer >= SpawnCheckInterval)
 	{
 		SpawnCheckTimer = 0.0f;
-		float DistanceAhead = DistanceTraveled + 40000.0f; // Increase spawn ahead distance to 50m (40,000 units)
+		float DistanceAhead = DistanceTraveled + 60000.0f; // Maintain 75m buffer
+		
 		if (bTrackSequenceLoaded && !bEndlessMode)
 		{
-			if (LastSpawnPosition < DistanceAhead && CurrentPieceIndex < TrackSequenceData.Pieces.Num())
+			// BUFFER FILL: Keep spawning until we hit the distance target or run out of sequence
+			int32 SpawnsThisTick = 0;
+			while (LastSpawnPosition < DistanceAhead && CurrentPieceIndex < TrackSequenceData.Pieces.Num())
+			{
 				SpawnNextSequencePiece();
+				SpawnsThisTick++;
+			}
+			if (SpawnsThisTick > 0)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("TrackGenerator: Tick spawned %d pieces. CurrentIndex: %d/%d, LastPos: %.2f, Target: %.2f"), 
+					SpawnsThisTick, CurrentPieceIndex, TrackSequenceData.Pieces.Num(), LastSpawnPosition, DistanceAhead);
+			}
 		}
 		else if (bEndlessMode)
 		{
-			if (LastSpawnPosition < DistanceAhead)
+			int32 SpawnsThisTick = 0;
+			while (LastSpawnPosition < DistanceAhead)
+			{
 				SpawnTrackPiece(LastSpawnPosition);
+				SpawnsThisTick++;
+			}
 		}
 	}
+	
 	static float CleanupTimer = 0.0f;
 	CleanupTimer += DeltaTime;
 	if (CleanupTimer >= 1.0f) { CleanupTimer = 0.0f; CleanupOldPieces(); }
@@ -94,26 +100,28 @@ void ATrackGenerator::Initialize(ARabbitCharacter* InPlayerCharacter)
 	PlayerCharacter = InPlayerCharacter;
 	if (TrackPieceDefinitions.Num() == 0 || !TrackPieceClass) return;
 	
-	// If we have a sequence, we should clear everything and start from the sequence
+	// If we have a sequence, we should check if we already have pieces
 	if (bTrackSequenceLoaded)
 	{
+		// If we already have pieces (spawned by LoadTrackSequence), just log and skip reset
+		if (ActiveTrackPieces.Num() > 0)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("TrackGenerator: Already initialized with sequence buffer. Pieces: %d"), ActiveTrackPieces.Num());
+			return;
+		}
+
 		Reset();
 		bTrackSequenceLoaded = true; // Reset clears this, so set it back
 		CurrentPieceIndex = 0;
 		LastSpawnPosition = 0.0f;
 		
-		// Pre-spawn initial pieces from sequence
-		// Ensure the first piece (index 0) is actually spawned at 0
-		for (int32 i = 0; i < PiecesAhead && CurrentPieceIndex < TrackSequenceData.Pieces.Num(); ++i)
+		// Fill initial buffer
+		float InitialTarget = 60000.0f; 
+		while (LastSpawnPosition < InitialTarget && CurrentPieceIndex < TrackSequenceData.Pieces.Num())
 		{
 			SpawnNextSequencePiece();
 		}
-		
-		// If we still haven't spawned anything (sequence empty or something), fallback to standard
-		if (ActiveTrackPieces.Num() > 0)
-		{
-			return;
-		}
+		return;
 	}
 
 	FVector FirstConnectionPoint(0.0f, 0.0f, 0.0f);
@@ -146,13 +154,42 @@ void ATrackGenerator::UpdatePlayerReference(ARabbitCharacter* InPlayerCharacter)
 void ATrackGenerator::Reset()
 {
 	for (ATrackPiece* P : ActiveTrackPieces) if (IsValid(P)) { P->ClearSpawnedActors(); P->Destroy(); }
-	ActiveTrackPieces.Empty(); PieceIdMap.Empty(); ReachedPieces.Empty();
-	TotalTrackPiecesSpawned = 0; LastSpawnPosition = 0.0f; DistanceTraveled = 0.0f; PlayerCharacter = nullptr; CurrentPieceIndex = 0; bTrackSequenceLoaded = false;
+	ActiveTrackPieces.Empty(); 
+	PieceIdMap.Empty(); 
+	ReachedPieces.Empty();
+	TotalTrackPiecesSpawned = 0; 
+	LastSpawnPosition = 0.0f; 
+	DistanceTraveled = 0.0f; 
+	CurrentPieceIndex = 0; 
+	bTrackSequenceLoaded = false;
 }
 
 void ATrackGenerator::LoadTrackSequence(const FTrackSequenceData& SequenceData)
 {
-	Reset(); TrackSequenceData = SequenceData; CurrentPieceIndex = 0; bTrackSequenceLoaded = true; bEndlessMode = false; LastSpawnPosition = 0.0f;
+	Reset(); 
+	TrackSequenceData = SequenceData; 
+	CurrentPieceIndex = 0; 
+	bTrackSequenceLoaded = true; 
+	bEndlessMode = false; 
+	LastSpawnPosition = 0.0f;
+
+	UE_LOG(LogTemp, Warning, TEXT("=================================================="));
+	UE_LOG(LogTemp, Warning, TEXT("TRACK SEQUENCE RECEIVED: %d PIECES"), TrackSequenceData.Pieces.Num());
+	for (int32 i = 0; i < TrackSequenceData.Pieces.Num(); ++i)
+	{
+		UE_LOG(LogTemp, Log, TEXT("  [%d]: %s"), i, *TrackSequenceData.Pieces[i].PieceId);
+	}
+	UE_LOG(LogTemp, Warning, TEXT("=================================================="));
+
+	// Pre-spawn initial buffer immediately so pieces exist before player spawns
+	float InitialTarget = 60000.0f; 
+	int32 InitialSpawns = 0;
+	while (LastSpawnPosition < InitialTarget && CurrentPieceIndex < TrackSequenceData.Pieces.Num())
+	{
+		SpawnNextSequencePiece();
+		InitialSpawns++;
+	}
+	UE_LOG(LogTemp, Warning, TEXT("TrackGenerator: LoadTrackSequence spawned %d pieces for initial buffer."), InitialSpawns);
 }
 
 int32 ATrackGenerator::GetRemainingPieces() const { return bTrackSequenceLoaded ? FMath::Max(0, TrackSequenceData.Pieces.Num() - CurrentPieceIndex) : 0; }

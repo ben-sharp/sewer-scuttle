@@ -754,7 +754,7 @@ void AEndlessRunnerGameMode::OnTrackSequenceReceived(const FTrackSequenceData& S
 	
 	ARabbitCharacter* Player = Cast<ARabbitCharacter>(PlayerController->GetPawn());
 	if (!Player) { if (DefaultPawnClass) { Player = World->SpawnActor<ARabbitCharacter>(DefaultPawnClass, PlayerSpawnLocation, PlayerSpawnRotation); if (Player) PlayerController->Possess(Player); } }
-	else { Player->ResetRagdollState(); FVector RL(100.0f, 0.0f, 200.0f); Player->SetActorLocation(RL, false, nullptr, ETeleportType::TeleportPhysics); Player->SetActorRotation(FRotator::ZeroRotator); Player->ResetLanePosition(); PlayerSpawnLocation = RL; PlayerSpawnRotation = FRotator::ZeroRotator; }
+	else { Player->ResetRagdollState(); FVector RL(100.0f, 0.0f, 400.0f); Player->SetActorLocation(RL, false, nullptr, ETeleportType::TeleportPhysics); Player->SetActorRotation(FRotator::ZeroRotator); Player->ResetLanePosition(); PlayerSpawnLocation = RL; PlayerSpawnRotation = FRotator::ZeroRotator; }
 	
 	CachedPlayer = Player;
 	if (Player)

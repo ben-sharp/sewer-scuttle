@@ -105,8 +105,13 @@ class RunSeedService
         $bosses = ContentDefinition::where('content_type', 'track_piece')
             ->where('is_active', true)
             ->get()
-            ->filter(fn($p) => ($p->properties['piece_type'] ?? '') === 'Boss');
+            ->filter(function($p) {
+                $type = strtolower(trim($p->properties['piece_type'] ?? ''));
+                return $type === 'boss';
+            });
         
+        \Log::info("RunSeedService: Found " . $bosses->count() . " boss pieces.");
+
         $bossId = 'Boss_Generic';
         if ($bosses->count() > 0) {
             $index = mt_rand(0, $bosses->count() - 1);
@@ -135,58 +140,99 @@ class RunSeedService
         $shopPositions = [];
         $currentLength = 0;
 
-        // Add Start piece
+        // Add Start piece pool (strict)
         $startPieces = ContentDefinition::where('content_type', 'track_piece')
             ->where('is_active', true)
             ->get()
-            ->filter(fn($p) => ($p->properties['piece_type'] ?? '') === 'Start');
+            ->filter(function($p) {
+                $type = strtolower(trim($p->properties['piece_type'] ?? ''));
+                return $type === 'start';
+            });
         
+        \Log::info("RunSeedService: Found " . $startPieces->count() . " potential start pieces.");
+
         if ($startPieces->count() > 0) {
             $index = mt_rand(0, $startPieces->count() - 1);
             $piece = $startPieces->values()->get($index);
             $pieces[] = $this->prescribeSpawns($piece, $playerClass);
-            $currentLength += ($piece->properties['length'] ?? 800) / 800.0;
+            $currentLength += ($piece->properties['length'] ?? 1600) / 800.0;
+            \Log::info("RunSeedService: Added start piece: " . $piece->content_id);
         }
 
-        // Get normal pieces (strictly exclude Start, Shop, Boss)
+        // Get normal pieces (STRICTLY EXCLUDE Start, Shop, Boss)
         $normalPieces = ContentDefinition::where('content_type', 'track_piece')
             ->where('is_active', true)
             ->get()
-            ->filter(fn($p) => ($p->properties['piece_type'] ?? 'Normal') === 'Normal');
+            ->filter(function($p) {
+                $props = $p->properties;
+                $type = strtolower(trim($props['piece_type'] ?? 'normal'));
+                
+                // Exclude if explicitly Start, Shop, Boss
+                if ($type === 'start' || $type === 'shop' || $type === 'boss') return false;
+                
+                return $type === 'normal';
+            });
 
-        if ($normalPieces->isEmpty()) return ['pieces' => [], 'shop_positions' => []];
+        \Log::info("RunSeedService: Found " . $normalPieces->count() . " normal pieces pool.");
+
+        if ($normalPieces->isEmpty()) {
+            \Log::error("RunSeedService: No normal pieces found! Sequence will be empty.");
+            return ['pieces' => [], 'shop_positions' => []];
+        }
 
         while ($currentLength < $track['length']) {
             $index = mt_rand(0, $normalPieces->count() - 1);
             $piece = $normalPieces->values()->get($index);
             $pieces[] = $this->prescribeSpawns($piece, $playerClass);
-            $currentLength += ($piece->properties['length'] ?? 800) / 800.0;
+            $currentLength += ($piece->properties['length'] ?? 1600) / 800.0;
         }
 
         // Place shops
         $shopPieces = ContentDefinition::where('content_type', 'track_piece')
             ->where('is_active', true)
             ->get()
-            ->filter(fn($p) => ($p->properties['piece_type'] ?? '') === 'Shop');
+            ->filter(function($p) {
+                $type = strtolower(trim($p->properties['piece_type'] ?? ''));
+                return $type === 'shop';
+            });
+
+        \Log::info("RunSeedService: Found " . $shopPieces->count() . " shop pieces pool.");
 
         if ($shopPieces->count() > 0) {
             $config = config('game.tracks');
             $range = $config['shop_position_range'] ?? [0.5, 0.7];
+            
+            // Track index for deterministic item generation
             for ($s = 0; $s < $track['shop_count']; $s++) {
                 $progress = $range[0] + (($range[1] - $range[0]) * ($s / max(1, $track['shop_count'] - 1)));
                 $pos = (int)(count($pieces) * $progress);
+                
+                // Don't overwrite the very first (Start) or very last (Normal) piece if possible
+                if ($pos <= 0) $pos = 1;
+                if ($pos >= count($pieces)) $pos = count($pieces) - 1;
+                
                 while (in_array($pos, $shopPositions)) $pos++;
+                
                 if ($pos < count($pieces)) {
                     $shopPositions[] = $pos;
                     $shopIndex = mt_rand(0, $shopPieces->count() - 1);
-                    $pieces[$pos] = $this->prescribeSpawns($shopPieces->values()->get($shopIndex), $playerClass);
+                    $piece = $shopPieces->values()->get($shopIndex);
+                    \Log::info("RunSeedService: Placing shop at index {$pos}: " . $piece->content_id);
+                    $pieces[$pos] = $this->prescribeSpawns($piece, $playerClass);
                 }
             }
         }
 
         // Add Boss
         $bossPiece = ContentDefinition::where('content_id', $track['boss_id'])->first();
-        if ($bossPiece) $pieces[] = $this->prescribeSpawns($bossPiece, $playerClass);
+        if ($bossPiece) {
+            \Log::info("RunSeedService: Adding boss piece: " . $bossPiece->content_id);
+            $pieces[] = $this->prescribeSpawns($bossPiece, $playerClass);
+        } else {
+            \Log::warning("RunSeedService: Boss piece " . $track['boss_id'] . " not found!");
+        }
+
+        \Log::info("RunSeedService: Generated sequence with " . count($pieces) . " pieces.");
 
         return [
             'pieces' => $pieces,
@@ -367,3 +413,4 @@ class RunSeedService
         return Cache::get('content_version', config('game.content_version', '1.0.0'));
     }
 }
+

@@ -91,7 +91,7 @@ private:
 	/** Select a track piece definition based on difficulty and weight (legacy - for endless mode) */
 	UTrackPieceDefinition* SelectTrackPieceDefinition();
 
-	/** Find the first piece definition (marked with bIsFirstPiece) */
+	/** Find the first piece definition (type Start) */
 	UTrackPieceDefinition* FindFirstPieceDefinition() const;
 
 	/** Find track piece definition by content ID */
