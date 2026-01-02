@@ -33,6 +33,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Jump")
 	float GetJumpHeight() const;
 
+	/** Get multi-jump height (from GAS if available, otherwise from local property) */
+	UFUNCTION(BlueprintPure, Category = "Jump")
+	float GetMultiJumpHeight() const;
+
 	/** Set maximum jump count (for multi-jump) */
 	UFUNCTION(BlueprintCallable, Category = "Jump")
 	void SetMaxJumpCount(int32 Count);

@@ -71,6 +71,36 @@ public:
 	FGameplayAttributeData LaneTransitionSpeedMultiplier;
 	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, LaneTransitionSpeedMultiplier)
 
+	// Base Multi Jump Height
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	FGameplayAttributeData BaseMultiJumpHeight;
+	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, BaseMultiJumpHeight)
+
+	// Current Multi Jump Height
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	FGameplayAttributeData CurrentMultiJumpHeight;
+	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, CurrentMultiJumpHeight)
+
+	// Multi Jump Height Multiplier
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	FGameplayAttributeData MultiJumpHeightMultiplier;
+	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, MultiJumpHeightMultiplier)
+
+	// Base Gravity Scale (Weight)
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	FGameplayAttributeData BaseGravityScale;
+	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, BaseGravityScale)
+
+	// Current Gravity Scale
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	FGameplayAttributeData CurrentGravityScale;
+	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, CurrentGravityScale)
+
+	// Gravity Scale Multiplier
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	FGameplayAttributeData GravityScaleMultiplier;
+	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, GravityScaleMultiplier)
+
 	// Combat Stats
 	// Base Lives
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
@@ -124,6 +154,8 @@ protected:
 	void UpdateCurrentSpeed();
 	void UpdateCurrentJumpHeight();
 	void UpdateCurrentLaneTransitionSpeed();
+	void UpdateCurrentMultiJumpHeight();
+	void UpdateCurrentGravityScale();
 	void UpdateCurrentLives();
 	void UpdateCurrentMaxJumpCount();
 

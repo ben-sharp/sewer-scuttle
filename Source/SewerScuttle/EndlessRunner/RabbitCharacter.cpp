@@ -213,6 +213,11 @@ void ARabbitCharacter::Tick(float DeltaTime)
 		if (AttributeSet)
 		{
 			ForwardSpeed = AttributeSet->GetCurrentSpeed();
+			LaneTransitionSpeed = AttributeSet->GetCurrentLaneTransitionSpeed();
+			if (GetCharacterMovement())
+			{
+				GetCharacterMovement()->GravityScale = AttributeSet->GetCurrentGravityScale();
+			}
 		}
 		
 		// Always apply forward movement input
@@ -1212,6 +1217,8 @@ void ARabbitCharacter::ResetGASEffects()
 	AttributeSet->SetCoinMultiplier(0.0f);
 	AttributeSet->SetScoreMultiplier(0.0f);
 	AttributeSet->SetLaneTransitionSpeedMultiplier(0.0f);
+	AttributeSet->SetMultiJumpHeightMultiplier(0.0f);
+	AttributeSet->SetGravityScaleMultiplier(0.0f);
 	
 	// Reset boolean-like attributes (magnet, autopilot, invincibility)
 	AttributeSet->SetMagnetActive(0.0f);
@@ -1222,6 +1229,8 @@ void ARabbitCharacter::ResetGASEffects()
 	// These will be overridden by class perks in StartGame(), but we reset to defaults first
 	AttributeSet->SetBaseSpeed(BaseForwardSpeed);
 	AttributeSet->SetBaseJumpHeight(300.0f);
+	AttributeSet->SetBaseMultiJumpHeight(200.0f);
+	AttributeSet->SetBaseGravityScale(1.0f);
 	AttributeSet->SetBaseLaneTransitionSpeed(BaseLaneTransitionSpeed);
 	AttributeSet->SetBaseMaxJumpCount(1.0f);
 	// BaseLives is set separately in StartGame() based on StartingLives
@@ -1241,6 +1250,18 @@ void ARabbitCharacter::ApplyEffectByTag(FGameplayTag Tag, float Value)
 	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("JumpHeightMultiplier"))))
 	{
 		AttributeSet->SetJumpHeightMultiplier(AttributeSet->GetJumpHeightMultiplier() + Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("MultiJumpHeightMultiplier"))))
+	{
+		AttributeSet->SetMultiJumpHeightMultiplier(AttributeSet->GetMultiJumpHeightMultiplier() + Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("GravityScaleMultiplier"))))
+	{
+		AttributeSet->SetGravityScaleMultiplier(AttributeSet->GetGravityScaleMultiplier() + Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("LaneTransitionSpeedMultiplier"))))
+	{
+		AttributeSet->SetLaneTransitionSpeedMultiplier(AttributeSet->GetLaneTransitionSpeedMultiplier() + Value);
 	}
 	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("BaseMaxJumpCount"))))
 	{

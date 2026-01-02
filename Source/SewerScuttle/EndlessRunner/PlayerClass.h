@@ -72,6 +72,38 @@ struct FPlayerClassData
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float DamageReduction = 1.0f;
 
+	/** Base Jump Power (First Jump) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class")
+	float BaseJumpHeight = 300.0f;
+
+	/** Jump Power Multiplier (First Jump) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class")
+	float JumpHeightMultiplier = 0.0f;
+
+	/** Base Multi Jump Power (Air Jumps) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class")
+	float BaseMultiJumpHeight = 200.0f;
+
+	/** Multi Jump Power Multiplier (Air Jumps) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class")
+	float MultiJumpHeightMultiplier = 0.0f;
+
+	/** Base Weight (Gravity Scale) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class")
+	float BaseGravityScale = 1.0f;
+
+	/** Weight Multiplier (Gravity Scale) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class")
+	float GravityScaleMultiplier = 0.0f;
+
+	/** Base Turn Speed (Lane Change Speed) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class")
+	float BaseLaneTransitionSpeed = 10.0f;
+
+	/** Turn Speed Multiplier (Lane Change Speed) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class")
+	float LaneTransitionSpeedMultiplier = 0.0f;
+
 	/** Get default class data for a specific class */
 	static FPlayerClassData GetDefaultClassData(EPlayerClass Class);
 

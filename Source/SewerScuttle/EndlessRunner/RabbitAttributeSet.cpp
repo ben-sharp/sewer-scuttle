@@ -33,6 +33,24 @@ URabbitAttributeSet::URabbitAttributeSet()
 	
 	LaneTransitionSpeedMultiplier.SetBaseValue(0.0f);
 	LaneTransitionSpeedMultiplier.SetCurrentValue(0.0f);
+
+	BaseMultiJumpHeight.SetBaseValue(200.0f);
+	BaseMultiJumpHeight.SetCurrentValue(200.0f);
+
+	CurrentMultiJumpHeight.SetBaseValue(200.0f);
+	CurrentMultiJumpHeight.SetCurrentValue(200.0f);
+
+	MultiJumpHeightMultiplier.SetBaseValue(0.0f);
+	MultiJumpHeightMultiplier.SetCurrentValue(0.0f);
+
+	BaseGravityScale.SetBaseValue(1.0f);
+	BaseGravityScale.SetCurrentValue(1.0f);
+
+	CurrentGravityScale.SetBaseValue(1.0f);
+	CurrentGravityScale.SetCurrentValue(1.0f);
+
+	GravityScaleMultiplier.SetBaseValue(0.0f);
+	GravityScaleMultiplier.SetCurrentValue(0.0f);
 	
 	BaseLives.SetBaseValue(3.0f);
 	BaseLives.SetCurrentValue(3.0f);
@@ -80,6 +98,18 @@ void URabbitAttributeSet::UpdateCurrentLaneTransitionSpeed()
 	CurrentLaneTransitionSpeed.SetCurrentValue(NewCurrentLaneTransitionSpeed);
 }
 
+void URabbitAttributeSet::UpdateCurrentMultiJumpHeight()
+{
+	float NewCurrentMultiJumpHeight = BaseMultiJumpHeight.GetCurrentValue() * (1.0f + MultiJumpHeightMultiplier.GetCurrentValue());
+	CurrentMultiJumpHeight.SetCurrentValue(NewCurrentMultiJumpHeight);
+}
+
+void URabbitAttributeSet::UpdateCurrentGravityScale()
+{
+	float NewCurrentGravityScale = BaseGravityScale.GetCurrentValue() * (1.0f + GravityScaleMultiplier.GetCurrentValue());
+	CurrentGravityScale.SetCurrentValue(NewCurrentGravityScale);
+}
+
 void URabbitAttributeSet::UpdateCurrentLives()
 {
 	// Lives are typically just set directly, but we can calculate if needed
@@ -113,6 +143,18 @@ void URabbitAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute
 	{
 		NewValue = FMath::Max(NewValue, 1.0f);
 	}
+	else if (Attribute == GetBaseGravityScaleAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.1f, 10.0f);
+	}
+	else if (Attribute == GetBaseMultiJumpHeightAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 100.0f, 1000.0f);
+	}
+	else if (Attribute == GetBaseLaneTransitionSpeedAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 1.0f, 50.0f);
+	}
 }
 
 void URabbitAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
@@ -127,6 +169,14 @@ void URabbitAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribut
 	else if (Attribute == GetBaseJumpHeightAttribute() || Attribute == GetJumpHeightMultiplierAttribute())
 	{
 		UpdateCurrentJumpHeight();
+	}
+	else if (Attribute == GetBaseMultiJumpHeightAttribute() || Attribute == GetMultiJumpHeightMultiplierAttribute())
+	{
+		UpdateCurrentMultiJumpHeight();
+	}
+	else if (Attribute == GetBaseGravityScaleAttribute() || Attribute == GetGravityScaleMultiplierAttribute())
+	{
+		UpdateCurrentGravityScale();
 	}
 	else if (Attribute == GetBaseLaneTransitionSpeedAttribute() || Attribute == GetLaneTransitionSpeedMultiplierAttribute())
 	{

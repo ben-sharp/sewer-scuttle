@@ -723,6 +723,19 @@ void AEndlessRunnerGameMode::ApplyClassPerks(ARabbitCharacter* Player)
 	if (D.bSpawnsSpecialCollectibles) bSpawnSpecialCollectibles = true;
 	if (D.bHasStartingMagnet && D.StartingMagnetDuration > 0.0f) { bMagnetActive = true; GetWorldTimerManager().SetTimer(MagnetTimerHandle, this, &AEndlessRunnerGameMode::ClearMagnet, D.StartingMagnetDuration, false); }
 	if (D.BaseSpeedMultiplier != 1.0f) Player->SetForwardSpeed(Player->GetForwardSpeed() * D.BaseSpeedMultiplier);
+
+	// Apply new movement stats
+	if (URabbitAttributeSet* AS = Player->GetAttributeSet())
+	{
+		AS->SetBaseJumpHeight(D.BaseJumpHeight);
+		AS->SetJumpHeightMultiplier(D.JumpHeightMultiplier);
+		AS->SetBaseMultiJumpHeight(D.BaseMultiJumpHeight);
+		AS->SetMultiJumpHeightMultiplier(D.MultiJumpHeightMultiplier);
+		AS->SetBaseGravityScale(D.BaseGravityScale);
+		AS->SetGravityScaleMultiplier(D.GravityScaleMultiplier);
+		AS->SetBaseLaneTransitionSpeed(D.BaseLaneTransitionSpeed);
+		AS->SetLaneTransitionSpeedMultiplier(D.LaneTransitionSpeedMultiplier);
+	}
 }
 
 int32 AEndlessRunnerGameMode::GetLives() const { const ARabbitCharacter* P = GetCachedPlayer(); return (P && P->GetAttributeSet()) ? FMath::RoundToInt(P->GetAttributeSet()->GetCurrentLives()) : Lives; }

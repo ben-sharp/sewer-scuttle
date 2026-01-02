@@ -77,28 +77,29 @@ void URabbitJumpComponent::PerformJump()
 
 	// Perform jump - handle both ground and air jumps manually for full control
 	FVector JumpVelocity = MovementComp->Velocity;
-	float CurrentJumpHeight = GetJumpHeight();
-	float BaseJumpVelocity = FMath::Sqrt(2.0f * CurrentJumpHeight * MovementComp->GetGravityZ() * -1.0f);
 	
 	if (bOnGround)
 	{
-		// On ground - half jump velocity for first jump
-		JumpVelocity.Z = BaseJumpVelocity * 0.5f;
+		// On ground - jump velocity from base jump height
+		float CurrentJumpHeight = GetJumpHeight();
+		float BaseJumpVelocity = FMath::Sqrt(2.0f * CurrentJumpHeight * MovementComp->GetGravityZ() * -1.0f);
+		JumpVelocity.Z = BaseJumpVelocity;
 		CurrentJumpCount = 1; // First jump
 		CooldownRemaining = JumpCooldown;
 		UE_LOG(LogTemp, VeryVerbose, TEXT("RabbitJumpComponent: Ground jump (Velocity.Z=%.2f)"), JumpVelocity.Z);
 	}
 	else
 	{
-		// In air - apply reduced velocity for multi-jump
-		float MultiJumpVelocity = BaseJumpVelocity * MultiJumpVelocityMultiplier;
+		// In air - jump velocity from multi jump height
+		float CurrentMultiJumpHeight = GetMultiJumpHeight();
+		float MultiJumpVelocity = FMath::Sqrt(2.0f * CurrentMultiJumpHeight * MovementComp->GetGravityZ() * -1.0f);
 		JumpVelocity.Z = FMath::Max(JumpVelocity.Z, 0.0f) + MultiJumpVelocity;
 		
 		// Increment jump count for multi-jump
 		CurrentJumpCount++;
 		int32 CurrentMaxJumpCount = GetMaxJumpCount();
-		UE_LOG(LogTemp, Warning, TEXT("RabbitJumpComponent: Multi-jump used (Count: %d/%d, Velocity.Z=%.2f, Multiplier=%.2f)"), 
-			CurrentJumpCount, CurrentMaxJumpCount, JumpVelocity.Z, MultiJumpVelocityMultiplier);
+		UE_LOG(LogTemp, Warning, TEXT("RabbitJumpComponent: Multi-jump used (Count: %d/%d, Velocity.Z=%.2f)"), 
+			CurrentJumpCount, CurrentMaxJumpCount, JumpVelocity.Z);
 	}
 	
 	// Apply velocity and set movement mode
@@ -154,6 +155,18 @@ float URabbitJumpComponent::GetJumpHeight() const
 	}
 	// Fallback to local property
 	return JumpHeight;
+}
+
+float URabbitJumpComponent::GetMultiJumpHeight() const
+{
+	// Try to get from GAS first
+	ARabbitCharacter* RabbitChar = Cast<ARabbitCharacter>(GetOwner());
+	if (RabbitChar && RabbitChar->GetAttributeSet())
+	{
+		return RabbitChar->GetAttributeSet()->GetCurrentMultiJumpHeight();
+	}
+	// Fallback to local property (reduced jump height for air jumps)
+	return GetJumpHeight() * MultiJumpVelocityMultiplier;
 }
 
 void URabbitJumpComponent::SetMaxJumpCount(int32 Count)
