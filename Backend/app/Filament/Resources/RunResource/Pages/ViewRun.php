@@ -13,7 +13,7 @@ class ViewRun extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            // No edit/delete actions - runs are read-only
+            Actions\EditAction::make(),
         ];
     }
 }

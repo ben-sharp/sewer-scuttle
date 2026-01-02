@@ -3,263 +3,297 @@
 namespace App\Services;
 
 use App\Models\ContentDefinition;
-use App\Models\ContentVersion;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class RunSeedService
 {
-    /**
-     * Generate a new seed for a run
-     *
-     * @param int|null $playerId
-     * @param string|null $deviceId
-     * @param int|null $maxDistance
-     * @return array Seed data
-     */
-    public function generateSeed(?int $playerId = null, ?string $deviceId = null, ?int $maxDistance = null): array
+    public function generate(string $deviceId = null, int $maxDistance = null, string $playerClass = 'Vanilla'): array
     {
-        // Get current content version
-        $contentVersion = ContentVersion::current();
-        if (!$contentVersion) {
-            throw new \RuntimeException('No active content version found');
-        }
-
-        // Generate random seed
         $seed = mt_rand(1, 2147483647);
         $seedId = Str::uuid()->toString();
+        $version = $this->getContentVersion();
 
-        // Use config max_distance if not provided
-        $maxDistance = $maxDistance ?? config('game.runs.max_distance', 10000);
+        // Valid classes: Vanilla, Rogue, Enforcer, Joker, Scout, Collector
 
-        // Calculate max values using content
-        $maxCoins = $this->calculateMaxCoins($seed, $contentVersion->version, $maxDistance);
-        $maxObstacles = $this->calculateMaxObstacles($seed, $contentVersion->version, $maxDistance);
-        $maxTrackPieces = $this->calculateMaxTrackPieces($seed, $contentVersion->version, $maxDistance);
-
-        $seedData = [
+        // Pre-generate everything for the run seed
+        $data = [
             'seed_id' => $seedId,
             'seed' => $seed,
-            'content_version' => $contentVersion->version,
-            'max_coins' => $maxCoins,
-            'max_obstacles' => $maxObstacles,
-            'max_powerups' => 0, // TODO: Calculate from content
-            'max_track_pieces' => $maxTrackPieces,
-            'max_distance' => $maxDistance,
-            'player_id' => $playerId,
             'device_id' => $deviceId,
-            'generated_at' => now()->toIso8601String(),
-            'expires_at' => now()->addHour()->toIso8601String(),
+            'max_distance' => $maxDistance,
+            'player_class' => $playerClass,
+            'created_at' => now()->toIso8601String(),
+            'content_version' => $version,
+            'tiers' => [],
+            'shop_items' => [],
+            'boss_rewards' => [],
         ];
 
-        // Store in cache with 1 hour TTL
-        Cache::put("run_seed:{$seedId}", $seedData, now()->addHour());
-
-        return $seedData;
-    }
-
-    /**
-     * Get seed data by seed_id
-     *
-     * @param string $seedId
-     * @return array|null
-     */
-    public function getSeedData(string $seedId): ?array
-    {
-        return Cache::get("run_seed:{$seedId}");
-    }
-
-    /**
-     * Calculate max coins for a seed
-     *
-     * @param int $seed
-     * @param string $contentVersion
-     * @param int $maxDistance
-     * @return int
-     */
-    protected function calculateMaxCoins(int $seed, string $contentVersion, int $maxDistance): int
-    {
-        $contentVersionModel = ContentVersion::where('version', $contentVersion)->first();
-        if (!$contentVersionModel) {
-            return 0;
-        }
-
-        // Get track piece definitions
-        $trackPieces = ContentDefinition::where('content_version_id', $contentVersionModel->id)
-            ->ofType('track_piece')
-            ->active()
-            ->get();
-
-        if ($trackPieces->isEmpty()) {
-            return 0;
-        }
-
-        // Simulate track generation to count max coins
-        $totalCoins = 0;
-        $currentDistance = 0;
-        mt_srand($seed); // Seed the random number generator
-
-        while ($currentDistance < $maxDistance) {
-            // Select random track piece (weighted)
-            $trackPiece = $this->selectTrackPiece($trackPieces);
-            if (!$trackPiece) {
-                break;
-            }
-
-            $length = $trackPiece->properties['length'] ?? 1000;
-            $spawnConfigsRaw = $trackPiece->properties['spawn_configs'] ?? [];
-            
-            // Handle spawn_configs - might be JSON string or array
-            $spawnConfigs = is_string($spawnConfigsRaw) 
-                ? json_decode($spawnConfigsRaw, true) ?? [] 
-                : $spawnConfigsRaw;
-
-            // Count coins in this track piece
-            foreach ($spawnConfigs as $config) {
-                if (is_array($config) && ($config['spawn_type'] ?? '') === 'coin' && mt_rand(0, 100) / 100 <= ($config['spawn_probability'] ?? 0)) {
-                    $coinValue = $config['properties']['value'] ?? 1;
-                    $totalCoins += $coinValue;
-                }
-            }
-
-            $currentDistance += $length;
-        }
-
-        mt_srand(); // Reset random seed
-
-        return (int) $totalCoins;
-    }
-
-    /**
-     * Calculate max obstacles for a seed
-     *
-     * @param int $seed
-     * @param string $contentVersion
-     * @param int $maxDistance
-     * @return int
-     */
-    protected function calculateMaxObstacles(int $seed, string $contentVersion, int $maxDistance): int
-    {
-        $contentVersionModel = ContentVersion::where('version', $contentVersion)->first();
-        if (!$contentVersionModel) {
-            return 0;
-        }
-
-        $trackPieces = ContentDefinition::where('content_version_id', $contentVersionModel->id)
-            ->ofType('track_piece')
-            ->active()
-            ->get();
-
-        if ($trackPieces->isEmpty()) {
-            return 0;
-        }
-
-        $totalObstacles = 0;
-        $currentDistance = 0;
         mt_srand($seed);
 
-        while ($currentDistance < $maxDistance) {
-            $trackPiece = $this->selectTrackPiece($trackPieces);
-            if (!$trackPiece) {
-                break;
-            }
-
-            $length = $trackPiece->properties['length'] ?? 1000;
-            $spawnConfigsRaw = $trackPiece->properties['spawn_configs'] ?? [];
+        for ($tier = 1; $tier <= 3; $tier++) {
+            $data['tiers'][$tier] = $this->generateTierTracks($tier, $seed + $tier);
             
-            // Handle spawn_configs - might be JSON string or array
-            $spawnConfigs = is_string($spawnConfigsRaw) 
-                ? json_decode($spawnConfigsRaw, true) ?? [] 
-                : $spawnConfigsRaw;
-
-            foreach ($spawnConfigs as $config) {
-                if (is_array($config) && ($config['spawn_type'] ?? '') === 'obstacle' && mt_rand(0, 100) / 100 <= ($config['spawn_probability'] ?? 0)) {
-                    $totalObstacles++;
+            // Pre-generate boss rewards for this tier
+            $data['boss_rewards'][$tier] = $this->generateBossRewards($tier, $seed + $tier + 100, $playerClass);
+            
+            // Pre-generate shop items for each track in this tier
+            foreach ($data['tiers'][$tier] as $trackIndex => $track) {
+                for ($shopIndex = 0; $shopIndex < $track['shop_count']; $shopIndex++) {
+                    $shopKey = "{$tier}_{$trackIndex}_{$shopIndex}";
+                    $data['shop_items'][$shopKey] = $this->generateShopItems($tier, $trackIndex, $shopIndex, $seed + $tier + $trackIndex + $shopIndex, $playerClass);
                 }
             }
-
-            $currentDistance += $length;
         }
 
-        mt_srand();
+        // Cache the seed data for validation later
+        Cache::put("run_seed_{$seedId}", $data, now()->addHours(24));
 
-        return (int) $totalObstacles;
+        // Return Tier 1 data for starting the run
+        return [
+            'seed_id' => $seedId,
+            'seed' => $seed,
+            'tier' => 1,
+            'tracks' => $data['tiers'][1],
+            'content_version' => $version,
+        ];
     }
 
-    /**
-     * Calculate max track pieces for a seed
-     *
-     * @param int $seed
-     * @param string $contentVersion
-     * @param int $maxDistance
-     * @return int
-     */
-    protected function calculateMaxTrackPieces(int $seed, string $contentVersion, int $maxDistance): int
+    public function getTierTracks(string $seedId, int $tier): ?array
     {
-        $contentVersionModel = ContentVersion::where('version', $contentVersion)->first();
-        if (!$contentVersionModel) {
-            return 0;
+        $runData = Cache::get("run_seed_{$seedId}");
+        if (!$runData || !isset($runData['tiers'][$tier])) return null;
+
+        return [
+            'seed_id' => $seedId,
+            'seed' => $runData['seed'],
+            'tier' => $tier,
+            'tracks' => $runData['tiers'][$tier],
+            'content_version' => $runData['content_version'],
+        ];
+    }
+
+    public function selectTrack(string $seedId, int $tier, int $trackIndex): ?array
+    {
+        $runData = Cache::get("run_seed_{$seedId}");
+        if (!$runData || !isset($runData['tiers'][$tier][$trackIndex])) return null;
+
+        $track = $runData['tiers'][$tier][$trackIndex];
+        
+        // Generate the actual piece sequence for this track
+        // We do this on-demand to keep the cached seed smaller, but it's still deterministic
+        $sequence = $this->generatePieceSequence($track, $runData['seed'] + $tier + $trackIndex);
+
+        return [
+            'piece_ids' => $sequence['piece_ids'],
+            'shop_positions' => $sequence['shop_positions'],
+            'boss_id' => $track['boss_id'],
+            'length' => $track['length'],
+            'shop_count' => $track['shop_count'],
+        ];
+    }
+
+    protected function generateTierTracks(int $tier, int $seed): array
+    {
+        mt_srand($seed);
+        $tracks = [];
+        $config = config('game.tracks');
+        $lengths = $config['tier_lengths'][$tier] ?? ['min' => 500, 'max' => 600];
+
+        // Get available bosses for this tier
+        $bosses = ContentDefinition::where('content_type', 'track_piece')
+            ->where('is_active', true)
+            ->whereJsonContains('properties->piece_type', 'Boss')
+            ->get();
+        
+        $bossId = $bosses->count() > 0 ? $bosses->random()->content_id : 'Boss_Generic';
+
+        for ($i = 0; $i < 3; $i++) {
+            $targetLength = mt_rand($lengths['min'], $lengths['max']);
+            $shopCount = mt_rand($config['shop_count_range'][0], $config['shop_count_range'][1]);
+            
+            $tracks[] = [
+                'id' => $i,
+                'length' => $targetLength,
+                'shop_count' => $shopCount,
+                'boss_id' => $bossId,
+            ];
         }
 
-        $trackPieces = ContentDefinition::where('content_version_id', $contentVersionModel->id)
-            ->ofType('track_piece')
-            ->active()
+        return $tracks;
+    }
+
+    protected function generatePieceSequence(array $track, int $seed): array
+    {
+        mt_srand($seed);
+        $pieceIds = [];
+        $shopPositions = [];
+        $currentLength = 0;
+
+        // Add Start piece at the beginning
+        $startPieces = ContentDefinition::where('content_type', 'track_piece')
+            ->where('is_active', true)
+            ->whereJsonContains('properties->piece_type', 'Start')
+            ->get();
+        
+        if ($startPieces->count() > 0) {
+            $piece = $startPieces->random();
+            $pieceIds[] = $piece->content_id;
+            $currentLength += ($piece->properties['length'] ?? 800) / 800.0;
+        }
+
+        // Get normal pieces
+        $normalPieces = ContentDefinition::where('content_type', 'track_piece')
+            ->where('is_active', true)
+            ->whereJsonContains('properties->piece_type', 'Normal')
             ->get();
 
-        if ($trackPieces->isEmpty()) {
-            return 0;
+        if ($normalPieces->isEmpty()) {
+            return ['piece_ids' => [], 'shop_positions' => []];
         }
 
-        // Calculate average track piece length
-        $totalLength = 0;
-        $count = 0;
-        foreach ($trackPieces as $piece) {
-            $length = $piece->properties['length'] ?? 1000;
-            $totalLength += $length;
-            $count++;
-        }
-        $avgLength = $count > 0 ? $totalLength / $count : 1000;
-
-        // Calculate max track pieces with safety multiplier
-        $multiplier = config('game.runs.max_track_pieces_multiplier', 1.2);
-        $maxTrackPieces = (int) ceil(($maxDistance / $avgLength) * $multiplier);
-
-        return $maxTrackPieces;
-    }
-
-    /**
-     * Select a track piece based on weight (simplified)
-     *
-     * @param \Illuminate\Database\Eloquent\Collection $trackPieces
-     * @return ContentDefinition|null
-     */
-    protected function selectTrackPiece($trackPieces)
-    {
-        if ($trackPieces->isEmpty()) {
-            return null;
+        // Fill with normal pieces until target length reached
+        while ($currentLength < $track['length']) {
+            $piece = $normalPieces->random();
+            $pieceIds[] = $piece->content_id;
+            $currentLength += ($piece->properties['length'] ?? 800) / 800.0;
         }
 
-        // Simple weighted selection
-        $totalWeight = $trackPieces->sum(function ($piece) {
-            return $piece->properties['weight'] ?? 1;
-        });
+        // Place shops at 50-70% through
+        $config = config('game.tracks');
+        $range = $config['shop_position_range'] ?? [0.5, 0.7];
+        
+        $shopPieces = ContentDefinition::where('content_type', 'track_piece')
+            ->where('is_active', true)
+            ->whereJsonContains('properties->piece_type', 'Shop')
+            ->get();
 
-        if ($totalWeight <= 0) {
-            return $trackPieces->first();
-        }
-
-        $random = mt_rand(0, $totalWeight - 1);
-        $currentWeight = 0;
-
-        foreach ($trackPieces as $piece) {
-            $weight = $piece->properties['weight'] ?? 1;
-            $currentWeight += $weight;
-            if ($random < $currentWeight) {
-                return $piece;
+        if ($shopPieces->count() > 0) {
+            for ($s = 0; $s < $track['shop_count']; $s++) {
+                $progress = $range[0] + (($range[1] - $range[0]) * ($s / max(1, $track['shop_count'] - 1)));
+                $pos = (int)(count($pieceIds) * $progress);
+                
+                // Ensure unique positions
+                while (in_array($pos, $shopPositions)) $pos++;
+                
+                if ($pos < count($pieceIds)) {
+                    $shopPositions[] = $pos;
+                    $pieceIds[$pos] = $shopPieces->random()->content_id;
+                }
             }
         }
 
-        return $trackPieces->first();
+        // Add boss piece at the end
+        $pieceIds[] = $track['boss_id'];
+
+        return [
+            'piece_ids' => $pieceIds,
+            'shop_positions' => $shopPositions,
+        ];
+    }
+
+    public function generateShopItems(int $tier, int $trackIndex, int $shopIndex, int $seed, string $playerClass = 'Vanilla'): array
+    {
+        mt_srand($seed);
+        $config = config('game.tracks');
+        $itemCount = mt_rand($config['shop_item_count'][0], $config['shop_item_count'][1]);
+
+        // Filter powerups by tier availability and player class
+        $tierName = "T{$tier}";
+        $query = ContentDefinition::where('content_type', 'powerup')
+            ->where('is_active', true)
+            ->whereJsonContains('properties->difficulty_availability', $tierName);
+        
+        $powerups = $query->get()->filter(function($pu) use ($playerClass) {
+            $allowed = $pu->properties['allowed_classes'] ?? [];
+            return count($allowed) === 0 || in_array($playerClass, $allowed);
+        });
+
+        if ($powerups->isEmpty()) {
+            $powerups = ContentDefinition::where('content_type', 'powerup')->where('is_active', true)->get();
+        }
+
+        $items = [];
+        $selected = $powerups->count() > $itemCount ? $powerups->random($itemCount) : $powerups;
+
+        foreach ($selected as $pu) {
+            $baseCost = $pu->properties['base_cost'] ?? 100;
+            $multiplier = $pu->properties['cost_multiplier_per_tier'] ?? 0.5;
+            $cost = (int)($baseCost * (1 + ($tier - 1) * $multiplier));
+
+            $items[] = [
+                'id' => $pu->content_id,
+                'name' => $pu->name,
+                'cost' => $cost,
+                'properties' => $pu->properties,
+            ];
+        }
+
+        return ['items' => $items];
+    }
+
+    public function generateBossRewards(int $tier, int $seed, string $playerClass = 'Vanilla'): array
+    {
+        mt_srand($seed);
+        $config = config('game.tracks');
+        $rewardCount = mt_rand($config['boss_reward_count'][0], $config['boss_reward_count'][1]);
+
+        $tierName = "T{$tier}";
+        $query = ContentDefinition::where('content_type', 'powerup')
+            ->where('is_active', true)
+            ->whereJsonContains('properties->difficulty_availability', $tierName);
+        
+        $powerups = $query->get()->filter(function($pu) use ($playerClass) {
+            $allowed = $pu->properties['allowed_classes'] ?? [];
+            return count($allowed) === 0 || in_array($playerClass, $allowed);
+        });
+
+        if ($powerups->isEmpty()) {
+            $powerups = ContentDefinition::where('content_type', 'powerup')->where('is_active', true)->get();
+        }
+
+        $rewards = [];
+        $selected = $powerups->count() > $rewardCount ? $powerups->random($rewardCount) : $powerups;
+
+        foreach ($selected as $pu) {
+            $rewards[] = [
+                'id' => $pu->content_id,
+                'name' => $pu->name,
+                'properties' => $pu->properties,
+            ];
+        }
+
+        return ['rewards' => $rewards];
+    }
+
+    public function getShopItems(string $seedId, int $tier, int $trackIndex, int $shopIndex): array
+    {
+        $runData = Cache::get("run_seed_{$seedId}");
+        $shopKey = "{$tier}_{$trackIndex}_{$shopIndex}";
+        
+        if ($runData && isset($runData['shop_items'][$shopKey])) {
+            return $runData['shop_items'][$shopKey];
+        }
+
+        // Fallback to on-demand generation if not in cache
+        return $this->generateShopItems($tier, $trackIndex, $shopIndex, ($runData['seed'] ?? mt_rand()) + $tier + $trackIndex + $shopIndex, $runData['player_class'] ?? 'Vanilla');
+    }
+
+    public function getBossRewards(string $seedId, int $tier): array
+    {
+        $runData = Cache::get("run_seed_{$seedId}");
+        
+        if ($runData && isset($runData['boss_rewards'][$tier])) {
+            return $runData['boss_rewards'][$tier];
+        }
+
+        // Fallback to on-demand generation
+        return $this->generateBossRewards($tier, ($runData['seed'] ?? mt_rand()) + $tier + 999, $runData['player_class'] ?? 'Vanilla');
+    }
+
+    protected function getContentVersion(): string
+    {
+        return Cache::get('content_version', config('game.content_version', '1.0.0'));
     }
 }
-

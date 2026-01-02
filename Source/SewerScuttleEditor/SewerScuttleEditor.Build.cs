@@ -8,26 +8,20 @@ public class SewerScuttleEditor : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicDependencyModuleNames.AddRange(new string[] {
-			"Core",
-			"CoreUObject",
-			"Engine",
-			"SewerScuttle", // Our main game module
+		PublicDependencyModuleNames.AddRange(new string[] { 
+			"Core", 
+			"CoreUObject", 
+			"Engine", 
+			"InputCore", 
+			"SewerScuttle" 
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] {
-			"UnrealEd",
-			"ToolMenus",
-			"EditorStyle",
-			"EditorWidgets",
-			"Slate",
-			"SlateCore",
-			"LevelEditor",
-			"PropertyEditor",
-			"WorkspaceMenuStructure",
-			"ContentBrowser",
-			"AssetTools",
-			"EditorSubsystem",
+		PrivateDependencyModuleNames.AddRange(new string[] { 
+			"Slate", 
+			"SlateCore", 
+			"UnrealEd", 
+			"ToolMenus", 
+			"LevelEditor" 
 		});
 	}
 }

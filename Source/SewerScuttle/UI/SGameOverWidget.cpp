@@ -12,6 +12,10 @@
 
 void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, float FinalDistance, float FinalTime)
 {
+	OnRetryClicked = InArgs._OnRetryClicked;
+	OnChangeClassClicked = InArgs._OnChangeClassClicked;
+	OnExitClicked = InArgs._OnExitClicked;
+
 	// Format time
 	int32 Minutes = FMath::FloorToInt(FinalTime / 60.0f);
 	int32 Seconds = FMath::FloorToInt(FMath::Fmod(FinalTime, 60.0f));
@@ -37,7 +41,7 @@ void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, floa
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 30)
+			.Padding(FMargin(0, 0, 0, 30))
 			[
 				SNew(STextBlock)
 				.Text(FText::FromString(TEXT("GAME OVER")))
@@ -47,7 +51,7 @@ void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, floa
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 20)
+			.Padding(FMargin(0, 0, 0, 20))
 			[
 				SAssignNew(FinalScoreText, STextBlock)
 				.Text(FText::FromString(FString::Printf(TEXT("FINAL SCORE: %d"), FinalScore)))
@@ -57,7 +61,7 @@ void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, floa
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 10)
+			.Padding(FMargin(0, 0, 0, 10))
 			[
 				SAssignNew(FinalDistanceText, STextBlock)
 				.Text(FText::FromString(FString::Printf(TEXT("DISTANCE: %.0fm"), FinalDistance)))
@@ -67,7 +71,7 @@ void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, floa
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 40)
+			.Padding(FMargin(0, 0, 0, 40))
 			[
 				SAssignNew(FinalTimeText, STextBlock)
 				.Text(FText::FromString(FString::Printf(TEXT("TIME: %s"), *TimeString)))
@@ -78,10 +82,9 @@ void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, floa
 			// Buttons
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 15)
+			.Padding(FMargin(0, 0, 0, 15))
 			[
 				SNew(SButton)
-				.Text(FText::FromString(TEXT("RETRY")))
 				.OnClicked(this, &SGameOverWidget::OnRetryButtonClicked)
 				.ContentPadding(FMargin(40, 15))
 				[
@@ -93,10 +96,9 @@ void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, floa
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 15)
+			.Padding(FMargin(0, 0, 0, 15))
 			[
 				SNew(SButton)
-				.Text(FText::FromString(TEXT("CHANGE CLASS")))
 				.OnClicked(this, &SGameOverWidget::OnChangeClassButtonClicked)
 				.ContentPadding(FMargin(40, 15))
 				[
@@ -110,7 +112,6 @@ void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, floa
 			.AutoHeight()
 			[
 				SNew(SButton)
-				.Text(FText::FromString(TEXT("EXIT")))
 				.OnClicked(this, &SGameOverWidget::OnExitButtonClicked)
 				.ContentPadding(FMargin(40, 15))
 				[

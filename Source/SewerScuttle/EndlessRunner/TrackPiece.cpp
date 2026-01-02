@@ -1,6 +1,12 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "TrackPiece.h"
+#include "ObstacleSpawnComponent.h"
+#include "PowerUpSpawnComponent.h"
+#include "CollectibleSpawnComponent.h"
+#include "Obstacle.h"
+#include "PowerUp.h"
+#include "CollectibleCoin.h"
 #include "Components/SceneComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/World.h"
@@ -181,6 +187,58 @@ void ATrackPiece::BuildComponentCache()
 			FString CompName = SceneComp->GetName();
 			ComponentCache.Add(CompName, SceneComp);
 			
+			// Auto-add spawn points from components if they are not already in the array
+			bool bIsSpawnComponent = false;
+			FSpawnPoint NewPoint;
+			NewPoint.SpawnPositionComponentName = CompName;
+			
+			if (UObstacleSpawnComponent* ObsComp = Cast<UObstacleSpawnComponent>(SceneComp))
+			{
+				NewPoint.SpawnType = ESpawnPointType::Obstacle;
+				NewPoint.WeightedDefinitions = ObsComp->ObstacleDefinitions;
+				bIsSpawnComponent = true;
+			}
+			else if (UPowerUpSpawnComponent* PUComp = Cast<UPowerUpSpawnComponent>(SceneComp))
+			{
+				NewPoint.SpawnType = ESpawnPointType::PowerUp;
+				NewPoint.WeightedDefinitions = PUComp->PowerUpDefinitions;
+				bIsSpawnComponent = true;
+			}
+			else if (UCollectibleSpawnComponent* ColComp = Cast<UCollectibleSpawnComponent>(SceneComp))
+			{
+				NewPoint.SpawnType = ESpawnPointType::Coin;
+				NewPoint.WeightedDefinitions = ColComp->CollectibleDefinitions;
+				bIsSpawnComponent = true;
+			}
+
+			if (bIsSpawnComponent)
+			{
+				// Determine lane and forward position from relative location
+				float Y = SceneComp->GetRelativeLocation().Y;
+				NewPoint.Lane = 1; // Center
+				if (Y < -100.0f) NewPoint.Lane = 0;
+				else if (Y > 100.0f) NewPoint.Lane = 2;
+				
+				NewPoint.ForwardPosition = SceneComp->GetRelativeLocation().X;
+
+				// Check if this component is already registered (to avoid duplicates)
+				bool bAlreadyRegistered = false;
+				for (const FSpawnPoint& ExistingPoint : SpawnPoints)
+				{
+					if (ExistingPoint.SpawnPositionComponentName == CompName)
+					{
+						bAlreadyRegistered = true;
+						break;
+					}
+				}
+
+				if (!bAlreadyRegistered)
+				{
+					SpawnPoints.Add(NewPoint);
+					UE_LOG(LogTemp, Log, TEXT("TrackPiece: Auto-registered spawn point from component '%s'"), *CompName);
+				}
+			}
+
 			// Disable ticking on all SceneComponents (they're just position markers)
 			SceneComp->SetComponentTickEnabled(false);
 			SceneComp->PrimaryComponentTick.bCanEverTick = false;

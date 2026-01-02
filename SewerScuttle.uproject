@@ -12,7 +12,7 @@
 		{
 			"Name": "SewerScuttleEditor",
 			"Type": "Editor",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "PostEngineInit"
 		}
 	],
 	"Plugins": [

@@ -18,18 +18,17 @@ class SEWERSCUTTLE_API SGameOverWidget : public SCompoundWidget
 public:
 	SLATE_BEGIN_ARGS(SGameOverWidget)
 	{}
+		SLATE_EVENT(FSimpleDelegate, OnRetryClicked)
+		SLATE_EVENT(FSimpleDelegate, OnChangeClassClicked)
+		SLATE_EVENT(FSimpleDelegate, OnExitClicked)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, int32 FinalScore, float FinalDistance, float FinalTime);
 
-	/** Delegate for retry button */
-	FOnRetryClicked OnRetryClicked;
-
-	/** Delegate for change class button */
-	FOnChangeClassClicked OnChangeClassClicked;
-
-	/** Delegate for exit button */
-	FOnExitClicked OnExitClicked;
+	/** Delegates */
+	FSimpleDelegate OnRetryClicked;
+	FSimpleDelegate OnChangeClassClicked;
+	FSimpleDelegate OnExitClicked;
 
 private:
 	/** Final score text */

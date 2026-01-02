@@ -11,6 +11,11 @@
 
 void SPauseWidget::Construct(const FArguments& InArgs, int32 Seed)
 {
+	OnResumeClicked = InArgs._OnResumeClicked;
+	OnRetryClicked = InArgs._OnRetryClicked;
+	OnSettingsClicked = InArgs._OnSettingsClicked;
+	OnMainMenuClicked = InArgs._OnMainMenuClicked;
+
 	ChildSlot
 	[
 		SNew(SOverlay)
@@ -31,7 +36,7 @@ void SPauseWidget::Construct(const FArguments& InArgs, int32 Seed)
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 30)
+			.Padding(FMargin(0, 0, 0, 30))
 			[
 				SNew(STextBlock)
 				.Text(FText::FromString(TEXT("PAUSED")))
@@ -41,7 +46,7 @@ void SPauseWidget::Construct(const FArguments& InArgs, int32 Seed)
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 20)
+			.Padding(FMargin(0, 0, 0, 20))
 			[
 				SAssignNew(SeedText, STextBlock)
 				.Text(FText::FromString(FString::Printf(TEXT("SEED: %d"), Seed)))
@@ -52,7 +57,7 @@ void SPauseWidget::Construct(const FArguments& InArgs, int32 Seed)
 			// Buttons
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 15)
+			.Padding(FMargin(0, 0, 0, 15))
 			[
 				SNew(SButton)
 				.Text(FText::FromString(TEXT("RESUME")))
@@ -67,7 +72,7 @@ void SPauseWidget::Construct(const FArguments& InArgs, int32 Seed)
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 15)
+			.Padding(FMargin(0, 0, 0, 15))
 			[
 				SNew(SButton)
 				.Text(FText::FromString(TEXT("RETRY")))
@@ -82,7 +87,7 @@ void SPauseWidget::Construct(const FArguments& InArgs, int32 Seed)
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 15)
+			.Padding(FMargin(0, 0, 0, 15))
 			[
 				SNew(SButton)
 				.Text(FText::FromString(TEXT("SETTINGS")))
@@ -148,6 +153,8 @@ FReply SPauseWidget::OnMainMenuButtonClicked()
 	}
 	return FReply::Handled();
 }
+
+
 
 
 

@@ -4,15 +4,19 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "WebServerInterface.h"
 #include "TrackGenerator.generated.h"
 
 class ATrackPiece;
 class UTrackPieceDefinition;
 class ARabbitCharacter;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnShopPieceReached);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBossPieceReached);
+
 /**
- * Manages endless track generation
- * Spawns track pieces ahead of player and destroys pieces behind
+ * Manages track generation (finite tracks with shops and bosses)
+ * Spawns track pieces from a predefined sequence
  */
 UCLASS()
 class SEWERSCUTTLE_API ATrackGenerator : public AActor
@@ -57,12 +61,38 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Track")
 	int32 GetTotalTrackPiecesSpawned() const { return TotalTrackPiecesSpawned; }
 
+	/** Load a finite track sequence */
+	UFUNCTION(BlueprintCallable, Category = "Track")
+	void LoadTrackSequence(const FTrackSequenceData& SequenceData);
+
+	/** Get remaining pieces in sequence */
+	UFUNCTION(BlueprintPure, Category = "Track")
+	int32 GetRemainingPieces() const;
+
+	/** Check if track sequence is loaded */
+	UFUNCTION(BlueprintPure, Category = "Track")
+	bool IsTrackSequenceLoaded() const { return bTrackSequenceLoaded; }
+
+	/** Set endless mode */
+	UFUNCTION(BlueprintCallable, Category = "Track")
+	void SetEndlessMode(bool bEnabled) { bEndlessMode = bEnabled; }
+
+	/** Delegates for shop/boss events */
+	UPROPERTY(BlueprintAssignable, Category = "Track")
+	FOnShopPieceReached OnShopPieceReached;
+
+	UPROPERTY(BlueprintAssignable, Category = "Track")
+	FOnBossPieceReached OnBossPieceReached;
+
 private:
-	/** Select a track piece definition based on difficulty and weight */
+	/** Select a track piece definition based on difficulty and weight (legacy - for endless mode) */
 	UTrackPieceDefinition* SelectTrackPieceDefinition();
 
 	/** Find the first piece definition (marked with bIsFirstPiece) */
 	UTrackPieceDefinition* FindFirstPieceDefinition() const;
+
+	/** Find track piece definition by content ID */
+	UTrackPieceDefinition* FindTrackPieceDefinitionById(const FString& ContentId) const;
 
 protected:
 	/** Player character reference */
@@ -118,8 +148,30 @@ protected:
 	/** Interval between spawn checks (seconds) */
 	static constexpr float SpawnCheckInterval = 0.5f;
 
-	/** Spawn a new track piece */
+	/** Track sequence data (if using finite tracks) */
+	UPROPERTY()
+	FTrackSequenceData TrackSequenceData;
+
+	/** Current piece index in sequence */
+	int32 CurrentPieceIndex = 0;
+
+	/** Whether track sequence is loaded */
+	bool bTrackSequenceLoaded = false;
+
+	/** Whether in endless mode (infinite generation) */
+	bool bEndlessMode = false;
+
+	/** Map of spawned pieces to their content IDs (for shop/boss detection) */
+	TMap<ATrackPiece*, FString> PieceIdMap;
+
+	/** Set of pieces that have already triggered events */
+	TSet<ATrackPiece*> ReachedPieces;
+
+	/** Spawn a new track piece (from sequence or random for endless) */
 	void SpawnTrackPiece(float Position);
+
+	/** Spawn next piece from sequence */
+	void SpawnNextSequencePiece();
 
 	/** Destroy track pieces that are too far behind */
 	void CleanupOldPieces();
@@ -130,4 +182,3 @@ protected:
 	/** Draw debug visualization for lanes */
 	void DrawLaneDebugVisualization();
 };
-

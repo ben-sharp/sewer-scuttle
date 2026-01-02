@@ -10,28 +10,9 @@ class UTrackPieceDefinition;
 class UObstacleDefinition;
 class UPowerUpDefinition;
 class UCollectibleDefinition;
-class UDataAsset;
-
-USTRUCT(BlueprintType)
-struct SEWERSCUTTLE_API FContentDefinition
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Type; // track_piece, obstacle, powerup, collectible
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Id; // Unique ID from data asset
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Name;
-
-	UPROPERTY(BlueprintReadWrite)
-	TMap<FString, FString> Properties; // Type-specific properties as key-value pairs
-};
 
 /**
- * Content Registry - Collects all content definitions from data assets
+ * Registry for gathering all game content definitions for export
  */
 UCLASS()
 class SEWERSCUTTLE_API UContentRegistry : public UObject
@@ -39,57 +20,48 @@ class SEWERSCUTTLE_API UContentRegistry : public UObject
 	GENERATED_BODY()
 
 public:
-	UContentRegistry();
+	/** Gather all content definitions from the project */
+	void GatherContent();
 
-	/** Collect all content definitions */
-	UFUNCTION(BlueprintCallable, Category = "Content")
-	void CollectAllContent();
+	/** Get gathered track pieces */
+	const TArray<UTrackPieceDefinition*>& GetTrackPieces() const { return TrackPieces; }
 
-	/** Get content by type */
-	UFUNCTION(BlueprintCallable, Category = "Content")
-	TArray<FContentDefinition> GetContentByType(const FString& Type) const;
+	/** Get gathered obstacles */
+	const TArray<UObstacleDefinition*>& GetObstacles() const { return Obstacles; }
 
-	/** Get all content */
-	UFUNCTION(BlueprintCallable, Category = "Content")
-	TArray<FContentDefinition> GetAllContent() const { return AllContent; }
+	/** Get gathered power-ups */
+	const TArray<UPowerUpDefinition*>& GetPowerUps() const { return PowerUps; }
 
-	/** Get content version */
+	/** Get gathered collectibles */
+	const TArray<UCollectibleDefinition*>& GetCollectibles() const { return Collectibles; }
+
+	/** Find a track piece definition by its ID (AssetName) */
 	UFUNCTION(BlueprintPure, Category = "Content")
-	FString GetContentVersion() const { return ContentVersion; }
+	UTrackPieceDefinition* FindTrackPieceById(const FString& ContentId) const;
 
-	/** Set content version */
-	UFUNCTION(BlueprintCallable, Category = "Content")
-	void SetContentVersion(const FString& Version) { ContentVersion = Version; }
+	/** Find an obstacle definition by its ID (AssetName) */
+	UFUNCTION(BlueprintPure, Category = "Content")
+	UObstacleDefinition* FindObstacleById(const FString& ContentId) const;
+
+	/** Find a power-up definition by its ID (AssetName) */
+	UFUNCTION(BlueprintPure, Category = "Content")
+	UPowerUpDefinition* FindPowerUpById(const FString& ContentId) const;
+
+	/** Find a collectible definition by its ID (AssetName) */
+	UFUNCTION(BlueprintPure, Category = "Content")
+	UCollectibleDefinition* FindCollectibleById(const FString& ContentId) const;
 
 private:
-	/** Collect track piece definitions */
-	void CollectTrackPieces();
-
-	/** Collect obstacle definitions */
-	void CollectObstacles();
-
-	/** Collect powerup definitions */
-	void CollectPowerUps();
-
-	/** Collect collectible definitions */
-	void CollectCollectibles();
-
-	/** Convert track piece definition to content definition */
-	FContentDefinition ConvertTrackPiece(UTrackPieceDefinition* Definition) const;
-
-	/** Convert obstacle definition to content definition */
-	FContentDefinition ConvertObstacle(UObstacleDefinition* Definition) const;
-
-	/** Convert powerup definition to content definition */
-	FContentDefinition ConvertPowerUp(UPowerUpDefinition* Definition) const;
-
-	/** Convert collectible definition to content definition */
-	FContentDefinition ConvertCollectible(UCollectibleDefinition* Definition) const;
+	UPROPERTY()
+	TArray<UTrackPieceDefinition*> TrackPieces;
 
 	UPROPERTY()
-	TArray<FContentDefinition> AllContent;
+	TArray<UObstacleDefinition*> Obstacles;
 
 	UPROPERTY()
-	FString ContentVersion = TEXT("1.0.0");
+	TArray<UPowerUpDefinition*> PowerUps;
+
+	UPROPERTY()
+	TArray<UCollectibleDefinition*> Collectibles;
 };
 

@@ -14,243 +14,100 @@ class RunController extends Controller
     public function __construct(
         protected RunSeedService $seedService,
         protected RunValidationService $validationService
-    ) {
-    }
+    ) {}
 
-    /**
-     * Request seed for new run
-     * POST /api/runs/start
-     */
     public function start(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'max_distance' => 'sometimes|integer|min:1|max:100000',
-            'device_id' => 'sometimes|string',
-        ]);
+        $deviceId = $request->input('device_id');
+        $maxDistance = $request->input('max_distance');
+        $playerClass = $request->input('player_class', 'Vanilla');
 
-        $playerId = null;
-        $deviceId = $validated['device_id'] ?? null;
+        $seedData = $this->seedService->generate($deviceId, $maxDistance, $playerClass);
 
-        // Get authenticated user if available
-        if ($request->user()) {
-            $player = $request->user()->player;
-            if ($player) {
-                $playerId = $player->id;
-            }
-        }
-
-        // Require either authenticated user or device_id
-        if (!$playerId && !$deviceId) {
-            return response()->json(['message' => 'Authentication or device_id required'], 401);
-        }
-
-        try {
-            $seedData = $this->seedService->generateSeed($playerId, $deviceId, $validated['max_distance'] ?? null);
-
-            return response()->json([
-                'seed_id' => $seedData['seed_id'],
-                'seed' => $seedData['seed'],
-                'content_version' => $seedData['content_version'],
-                'max_coins' => $seedData['max_coins'],
-                'max_obstacles' => $seedData['max_obstacles'],
-                'max_track_pieces' => $seedData['max_track_pieces'],
-                'max_distance' => $seedData['max_distance'],
-                'expires_at' => $seedData['expires_at'],
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to generate seed',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
+        return response()->json($seedData);
     }
 
-    /**
-     * Submit completed run (single endpoint)
-     * POST /api/runs
-     */
+    public function getTierTracks(string $seedId, int $tier): JsonResponse
+    {
+        $tierTracks = $this->seedService->getTierTracks($seedId, $tier);
+        if (!$tierTracks) {
+            return response()->json(['message' => 'Invalid seed_id or tier'], 404);
+        }
+
+        return response()->json($tierTracks);
+    }
+
+    public function selectTrack(Request $request, string $seedId): JsonResponse
+    {
+        $validated = $request->validate([
+            'tier' => 'required|integer',
+            'track_index' => 'required|integer',
+        ]);
+
+        $sequence = $this->seedService->selectTrack($seedId, $validated['tier'], $validated['track_index']);
+        if (!$sequence) {
+            return response()->json(['message' => 'Invalid selection'], 404);
+        }
+
+        return response()->json($sequence);
+    }
+
+    public function getShopItems(string $seedId, int $tier, int $trackIndex, int $shopIndex): JsonResponse
+    {
+        $shopData = $this->seedService->getShopItems($seedId, $tier, $trackIndex, $shopIndex);
+        return response()->json($shopData);
+    }
+
+    public function getBossRewards(string $seedId, int $tier): JsonResponse
+    {
+        $rewards = $this->seedService->getBossRewards($seedId, $tier);
+        return response()->json($rewards);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'seed_id' => 'required|string',
-            'score' => 'required|integer|min:0',
-            'distance' => 'required|integer|min:0',
-            'duration_seconds' => 'required|integer|min:0',
-            'coins_collected' => 'sometimes|integer|min:0',
-            'obstacles_hit' => 'sometimes|integer|min:0',
-            'powerups_used' => 'sometimes|integer|min:0',
-            'track_pieces_spawned' => 'sometimes|integer|min:0',
-            'run_data' => 'sometimes|array',
-            'started_at' => 'required|date',
-            'device_id' => 'sometimes|string',
+            'score' => 'required|integer',
+            'distance' => 'required|integer',
+            'duration_seconds' => 'required|integer',
+            'coins_collected' => 'integer',
+            'obstacles_hit' => 'integer',
+            'powerups_used' => 'integer',
+            'track_pieces_spawned' => 'integer',
+            'track_sequence' => 'array',
+            'is_complete' => 'boolean',
+            'is_endless' => 'boolean',
+            'device_id' => 'string|nullable',
+            'started_at' => 'string|nullable',
         ]);
 
-        $playerId = null;
-        $deviceId = $validated['device_id'] ?? null;
+        $validationResult = $this->validationService.validate($validated);
+        
+        $player = $request->user()?->player;
 
-        // Get authenticated user if available
-        if ($request->user()) {
-            $player = $request->user()->player;
-            if ($player) {
-                $playerId = $player->id;
-            }
-        }
-
-        // Require either authenticated user or device_id
-        if (!$playerId && !$deviceId) {
-            return response()->json(['message' => 'Authentication or device_id required'], 401);
-        }
-
-        // Get seed data
-        $seedData = $this->seedService->getSeedData($validated['seed_id']);
-        if (!$seedData) {
-            return response()->json(['message' => 'Seed expired or invalid'], 400);
-        }
-
-        // Validate run data
-        $validationResult = $this->validationService->validate($validated, $validated['seed_id']);
-
-        if (!$validationResult['valid']) {
-            return response()->json([
-                'message' => 'Run validation failed',
-                'errors' => $validationResult['errors'],
-            ], 422);
-        }
-
-        // Create run record
         $run = Run::create([
-            'player_id' => $playerId,
-            'device_id' => $deviceId,
+            'player_id' => $player?->id,
+            'device_id' => $validated['device_id'],
             'seed_id' => $validated['seed_id'],
-            'seed' => $seedData['seed'],
-            'max_coins' => $seedData['max_coins'],
-            'max_obstacles' => $seedData['max_obstacles'],
-            'max_track_pieces' => $seedData['max_track_pieces'],
-            'track_pieces_spawned' => $validated['track_pieces_spawned'] ?? null,
-            'run_hash' => $validationResult['run_hash'],
-            'is_suspicious' => $validationResult['suspicious'],
             'score' => $validated['score'],
             'distance' => $validated['distance'],
             'duration_seconds' => $validated['duration_seconds'],
             'coins_collected' => $validated['coins_collected'] ?? 0,
             'obstacles_hit' => $validated['obstacles_hit'] ?? 0,
             'powerups_used' => $validated['powerups_used'] ?? 0,
-            'run_data' => $validated['run_data'] ?? [],
-            'started_at' => $validated['started_at'],
-            'completed_at' => now(),
+            'track_pieces_spawned' => $validated['track_pieces_spawned'] ?? 0,
+            'track_sequence' => $validated['track_sequence'] ?? [],
+            'is_complete' => $validated['is_complete'] ?? false,
+            'is_endless' => $validated['is_endless'] ?? false,
+            'is_suspicious' => $validationResult['is_suspicious'] ?? false,
+            'started_at' => $validated['started_at'] ? now()->parse($validated['started_at']) : now(),
         ]);
-
-        // Update player stats (only if authenticated)
-        if ($playerId) {
-            $player = $request->user()->player;
-            $player->increment('total_runs');
-            $player->increment('total_distance', $validated['distance']);
-            $player->increment('total_coins', $validated['coins_collected'] ?? 0);
-
-            if ($validated['score'] > $player->best_score) {
-                $player->update(['best_score' => $validated['score']]);
-            }
-
-            // Add coins to currency
-            if (($validated['coins_collected'] ?? 0) > 0) {
-                $player->addCurrency('coins', $validated['coins_collected']);
-            }
-        }
 
         return response()->json([
-            'message' => 'Run completed successfully',
-            'run' => $run->load('player'),
-            'player_stats' => $playerId ? [
-                'total_runs' => $request->user()->player->total_runs,
-                'total_distance' => $request->user()->player->total_distance,
-                'total_coins' => $request->user()->player->total_coins,
-                'best_score' => $request->user()->player->best_score,
-            ] : null,
+            'message' => 'Run saved',
+            'id' => $run->id,
+            'is_suspicious' => $run->is_suspicious,
         ], 201);
-    }
-
-    /**
-     * Submit completed run (legacy endpoint - redirects to store)
-     * POST /api/runs/end
-     */
-    public function end(Request $request): JsonResponse
-    {
-        return $this->store($request);
-    }
-
-    /**
-     * Get run history
-     * GET /api/runs/history
-     */
-    public function history(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'limit' => 'sometimes|integer|min:1|max:100',
-        ]);
-
-        $playerId = null;
-        $deviceId = null;
-
-        // Get authenticated user if available
-        if ($request->user()) {
-            $player = $request->user()->player;
-            if ($player) {
-                $playerId = $player->id;
-            }
-        } else {
-            // Try to get device_id from request
-            $deviceId = $request->input('device_id');
-        }
-
-        if (!$playerId && !$deviceId) {
-            return response()->json(['message' => 'Authentication or device_id required'], 401);
-        }
-
-        $query = Run::orderBy('created_at', 'desc');
-
-        if ($playerId) {
-            $query->where('player_id', $playerId);
-        } else {
-            $query->where('device_id', $deviceId);
-        }
-
-        $runs = $query->limit($validated['limit'] ?? 50)->get();
-
-        return response()->json($runs);
-    }
-
-    /**
-     * Get specific run
-     * GET /api/runs/{id}
-     */
-    public function show(Request $request, int $id): JsonResponse
-    {
-        $playerId = null;
-        $deviceId = null;
-
-        if ($request->user()) {
-            $player = $request->user()->player;
-            if ($player) {
-                $playerId = $player->id;
-            }
-        } else {
-            $deviceId = $request->input('device_id');
-        }
-
-        if (!$playerId && !$deviceId) {
-            return response()->json(['message' => 'Authentication or device_id required'], 401);
-        }
-
-        $query = Run::where('id', $id);
-
-        if ($playerId) {
-            $query->where('player_id', $playerId);
-        } else {
-            $query->where('device_id', $deviceId);
-        }
-
-        $run = $query->firstOrFail();
-
-        return response()->json($run->load('player'));
     }
 }

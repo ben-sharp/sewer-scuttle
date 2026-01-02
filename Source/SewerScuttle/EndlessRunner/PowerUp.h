@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Components/SphereComponent.h"
 #include "GameplayEffect.h"
+#include "GameplayTagContainer.h"
 #include "PlayerClass.h"
 #include "PowerUp.generated.h"
 
@@ -82,7 +83,7 @@ protected:
 
 	/** Stat type to modify (e.g., "BaseSpeed", "SpeedMultiplier", "CoinMultiplier") - must match SetByCaller tag in GE */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PowerUp|GAS", meta = (ToolTip = "Stat name that matches the SetByCaller tag in your GameplayEffect (e.g., 'BaseSpeed', 'SpeedMultiplier')"))
-	FName StatTypeToModify;
+	FGameplayTag StatTypeToModify;
 
 	/** Modification value - set this in the PowerUp, not in the GameplayEffect (additive for permanent, multiplier for temporary) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PowerUp|GAS", meta = (ToolTip = "The value to apply. For permanent: adds to base stat. For temporary: multiplier amount (e.g., 0.5 = +50%)"))

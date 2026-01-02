@@ -4,13 +4,43 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "PowerUp.h"
 #include "PlayerClass.h"
+#include "GameplayTagContainer.h"
 #include "PowerUpDefinition.generated.h"
 
+class APowerUp;
+
+UENUM(BlueprintType)
+enum class ETrackTier : uint8
+{
+    T1	UMETA(DisplayName = "Tier 1"),
+    T2	UMETA(DisplayName = "Tier 2"),
+    T3	UMETA(DisplayName = "Tier 3")
+};
+
+namespace TrackTierUtils
+{
+    static FString ToString(ETrackTier Tier)
+    {
+        switch (Tier)
+        {
+            case ETrackTier::T2: return TEXT("T2");
+            case ETrackTier::T3: return TEXT("T3");
+            case ETrackTier::T1:
+            default: return TEXT("T1");
+        }
+    }
+
+    static ETrackTier FromString(const FString& TierStr)
+    {
+        if (TierStr.Equals(TEXT("T2"), ESearchCase::IgnoreCase)) return ETrackTier::T2;
+        if (TierStr.Equals(TEXT("T3"), ESearchCase::IgnoreCase)) return ETrackTier::T3;
+        return ETrackTier::T1;
+    }
+}
+
 /**
- * Data asset defining a powerup configuration
- * Used to define powerup properties for content export and server-side validation
+ * Defines properties for a game power-up
  */
 UCLASS(BlueprintType)
 class SEWERSCUTTLE_API UPowerUpDefinition : public UDataAsset
@@ -18,40 +48,52 @@ class SEWERSCUTTLE_API UPowerUpDefinition : public UDataAsset
 	GENERATED_BODY()
 
 public:
-	/** Name of this powerup definition */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition")
+	/** Human-readable name */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
 	FString PowerUpName;
 
-	/** Blueprint class to spawn */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition")
+	/** The power-up blueprint class to spawn */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
 	TSubclassOf<APowerUp> PowerUpClass;
 
-	/** Duration of powerup effect in seconds (0 = instant/one-time effect) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties", meta = (ClampMin = "0.0", ClampMax = "60.0"))
-	float Duration = 5.0f;
-
-	/** Player classes that can use this power-up (empty = all classes) */
+	/** Duration of the effect in seconds (0 = instant/permanent) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties")
+	float Duration = 10.0f;
+
+	/** The player stat modified by this power-up */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties")
+	FGameplayTag StatTypeToModify;
+
+	/** Amount to modify the stat by */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties")
+	float ModificationValue = 1.0f;
+
+	/** GAS effect class for permanent stat modification */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
+	TSubclassOf<class UGameplayEffect> PermanentStatModifierEffect;
+
+	/** GAS effect class for temporary multipliers */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
+	TSubclassOf<class UGameplayEffect> TemporaryMultiplierEffect;
+
+	/** Relative probability of being selected */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
+	float SelectionWeight = 1.0f;
+
+	/** Classes this power-up is allowed to appear for (empty = all) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
 	TArray<EPlayerClass> AllowedClasses;
 
-	/** Gameplay Effect class for permanent base stat modification */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
-	TSubclassOf<UGameplayEffect> PermanentStatModifierEffect;
+    /** Which difficulty tiers this powerup can appear in */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop", meta = (ToolTip = "Which tiers this powerup can appear in shops"))
+    TArray<ETrackTier> DifficultyAvailability;
 
-	/** Gameplay Effect class for temporary multiplier */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
-	TSubclassOf<UGameplayEffect> TemporaryMultiplierEffect;
+    /** Base cost in currency */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
+    int32 BaseCost = 100;
 
-	/** Stat type to modify (e.g., "BaseSpeed", "SpeedMultiplier", "CoinMultiplier") */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
-	FName StatTypeToModify;
-
-	/** Modification value (additive for permanent, multiplier for temporary) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
-	float ModificationValue = 0.0f;
-
-	/** Weight for random selection (higher = more likely) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Selection", meta = (ClampMin = "1"))
-	int32 SelectionWeight = 1;
+    /** How much the cost increases per tier (e.g. 0.5 = 50% increase per tier) */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
+    float CostMultiplierPerTier = 0.5f;
 };
 

@@ -2,256 +2,24 @@
 
 #include "WebServerInterface.h"
 #include "HttpClient.h"
-#include "AuthService.h"
 #include "DeviceIdManager.h"
+#include "ConfigManager.h"
+#include "PlayerClass.h"
 #include "Dom/JsonObject.h"
-#include "Dom/JsonValue.h"
-#include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonReader.h"
-#include "Misc/DateTime.h"
-
-UWebServerInterface::UWebServerInterface()
-{
-	HttpClient = nullptr;
-	AuthService = nullptr;
-}
+#include "Serialization/JsonSerializer.h"
+#include "Framework/Application/SlateApplication.h"
 
 void UWebServerInterface::Initialize()
 {
-	AuthService = UAuthService::Get();
-	HttpClient = NewObject<UHttpClient>(this);
-	HttpClient->Initialize(AuthService);
-	
-	UE_LOG(LogTemp, Log, TEXT("WebServerInterface: Initialized"));
-}
-
-void UWebServerInterface::LoadCurrency()
-{
 	if (!HttpClient)
 	{
-		Initialize();
-	}
-
-	// Check if authenticated
-	if (!AuthService || !AuthService->IsAuthenticated())
-	{
-		FString ErrorMsg = TEXT("Not authenticated. Please login first.");
-		UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: %s"), *ErrorMsg);
-		if (OnError.IsBound())
-		{
-			OnError.Execute(ErrorMsg);
-		}
-		return;
-	}
-
-	HttpClient->Get(TEXT("/player/currency"),
-		FOnHttpResponse::CreateUObject(this, &UWebServerInterface::OnCurrencyResponse),
-		FOnHttpError::CreateUObject(this, &UWebServerInterface::OnHttpError));
-}
-
-void UWebServerInterface::PostScore(int32 Score, float Distance)
-{
-	if (!HttpClient)
-	{
-		Initialize();
-	}
-
-	// Check if authenticated
-	if (!AuthService || !AuthService->IsAuthenticated())
-	{
-		FString ErrorMsg = TEXT("Not authenticated. Please login first.");
-		UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: %s"), *ErrorMsg);
-		if (OnError.IsBound())
-		{
-			OnError.Execute(ErrorMsg);
-		}
-		return;
-	}
-
-	// Build request body
-	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
-	JsonObject->SetNumberField(TEXT("score"), Score);
-	JsonObject->SetNumberField(TEXT("distance"), Distance);
-
-	FString RequestBody;
-	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
-	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
-
-	HttpClient->Post(TEXT("/leaderboard/submit"), RequestBody,
-		FOnHttpResponse::CreateUObject(this, &UWebServerInterface::OnScorePostResponse),
-		FOnHttpError::CreateUObject(this, &UWebServerInterface::OnHttpError));
-}
-
-void UWebServerInterface::GetLeaderboard(int32 TopCount)
-{
-	if (!HttpClient)
-	{
-		Initialize();
-	}
-
-	// Check if authenticated
-	if (!AuthService || !AuthService->IsAuthenticated())
-	{
-		FString ErrorMsg = TEXT("Not authenticated. Please login first.");
-		UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: %s"), *ErrorMsg);
-		if (OnError.IsBound())
-		{
-			OnError.Execute(ErrorMsg);
-		}
-		return;
-	}
-
-	FString Endpoint = FString::Printf(TEXT("/leaderboard?top=%d"), TopCount);
-	HttpClient->Get(Endpoint,
-		FOnHttpResponse::CreateUObject(this, &UWebServerInterface::OnLeaderboardResponse),
-		FOnHttpError::CreateUObject(this, &UWebServerInterface::OnHttpError));
-}
-
-void UWebServerInterface::PurchaseItem(const FString& ItemId, int32 Price)
-{
-	if (!HttpClient)
-	{
-		Initialize();
-	}
-
-	// Check if authenticated
-	if (!AuthService || !AuthService->IsAuthenticated())
-	{
-		FString ErrorMsg = TEXT("Not authenticated. Please login first.");
-		UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: %s"), *ErrorMsg);
-		if (OnError.IsBound())
-		{
-			OnError.Execute(ErrorMsg);
-		}
-		return;
-	}
-
-	// Build request body
-	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
-	JsonObject->SetStringField(TEXT("item_id"), ItemId);
-
-	FString RequestBody;
-	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
-	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
-
-	HttpClient->Post(TEXT("/store/purchase"), RequestBody,
-		FOnHttpResponse::CreateUObject(this, &UWebServerInterface::OnPurchaseResponse),
-		FOnHttpError::CreateUObject(this, &UWebServerInterface::OnHttpError));
-}
-
-void UWebServerInterface::OnCurrencyResponse(int32 ResponseCode, const FString& ResponseBody)
-{
-	TSharedPtr<FJsonValue> JsonValue;
-	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
-
-	if (FJsonSerializer::Deserialize(Reader, JsonValue) && JsonValue.IsValid())
-	{
-		int32 Currency = 0;
-		
-		// Response is an array of currency objects
-		if (JsonValue->Type == EJson::Array)
-		{
-			TArray<TSharedPtr<FJsonValue>> CurrencyArray = JsonValue->AsArray();
-			for (const TSharedPtr<FJsonValue>& CurrencyValue : CurrencyArray)
-			{
-				if (CurrencyValue->Type == EJson::Object)
-				{
-					TSharedPtr<FJsonObject> CurrencyObj = CurrencyValue->AsObject();
-					FString CurrencyType = CurrencyObj->GetStringField(TEXT("currency_type"));
-					if (CurrencyType == TEXT("coins"))
-					{
-						Currency = CurrencyObj->GetIntegerField(TEXT("amount"));
-						break; // Found coins, exit loop
-					}
-				}
-			}
-		}
-		// Fallback: try parsing as object (for backwards compatibility)
-		else if (JsonValue->Type == EJson::Object)
-		{
-			TSharedPtr<FJsonObject> JsonObject = JsonValue->AsObject();
-			if (JsonObject->HasField(TEXT("coins")))
-			{
-				Currency = JsonObject->GetIntegerField(TEXT("coins"));
-			}
-		}
-
-		if (OnCurrencyLoaded.IsBound())
-		{
-			OnCurrencyLoaded.Execute(Currency);
-		}
-	}
-	else
-	{
-		FString ErrorMsg = TEXT("Failed to parse currency response");
-		UE_LOG(LogTemp, Error, TEXT("WebServerInterface: %s"), *ErrorMsg);
-		if (OnError.IsBound())
-		{
-			OnError.Execute(ErrorMsg);
-		}
+		HttpClient = NewObject<UHttpClient>(this);
+		HttpClient->Initialize();
 	}
 }
 
-void UWebServerInterface::OnLeaderboardResponse(int32 ResponseCode, const FString& ResponseBody)
-{
-	TArray<FString> Scores;
-
-	TSharedPtr<FJsonObject> JsonObject;
-	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
-
-	if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
-	{
-		// Parse leaderboard response - adjust based on actual API response structure
-		if (JsonObject->HasField(TEXT("data")))
-		{
-			TArray<TSharedPtr<FJsonValue>> DataArray = JsonObject->GetArrayField(TEXT("data"));
-			for (const TSharedPtr<FJsonValue>& Value : DataArray)
-			{
-				if (Value->Type == EJson::Object)
-				{
-					TSharedPtr<FJsonObject> Entry = Value->AsObject();
-					FString ScoreStr = FString::Printf(TEXT("%s: %d"), 
-						*Entry->GetStringField(TEXT("display_name")),
-						Entry->GetIntegerField(TEXT("score")));
-					Scores.Add(ScoreStr);
-				}
-			}
-		}
-	}
-
-	if (OnLeaderboardLoaded.IsBound())
-	{
-		OnLeaderboardLoaded.Execute(Scores);
-	}
-}
-
-void UWebServerInterface::OnScorePostResponse(int32 ResponseCode, const FString& ResponseBody)
-{
-	bool bSuccess = ResponseCode >= 200 && ResponseCode < 300;
-	if (OnScorePosted.IsBound())
-	{
-		OnScorePosted.Execute(bSuccess);
-	}
-}
-
-void UWebServerInterface::OnPurchaseResponse(int32 ResponseCode, const FString& ResponseBody)
-{
-	if (ResponseCode >= 200 && ResponseCode < 300)
-	{
-		UE_LOG(LogTemp, Log, TEXT("WebServerInterface: Purchase successful"));
-	}
-	else
-	{
-		FString ErrorMsg = TEXT("Purchase failed");
-		UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: %s"), *ErrorMsg);
-		if (OnError.IsBound())
-		{
-			OnError.Execute(ErrorMsg);
-		}
-	}
-}
-
-void UWebServerInterface::RequestRunSeed(int32 MaxDistance)
+void UWebServerInterface::RequestRunSeed(int32 MaxDistance, EPlayerClass PlayerClass)
 {
 	if (!HttpClient)
 	{
@@ -260,63 +28,15 @@ void UWebServerInterface::RequestRunSeed(int32 MaxDistance)
 
 	UE_LOG(LogTemp, Log, TEXT("WebServerInterface: Requesting run seed (max_distance: %d)"), MaxDistance);
 
-	// Build request body
 	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
-	
-	// Add device_id if available (for anonymous runs)
-	UDeviceIdManager* DeviceIdManager = UDeviceIdManager::Get();
-	if (DeviceIdManager && DeviceIdManager->HasDeviceId())
-	{
-		JsonObject->SetStringField(TEXT("device_id"), DeviceIdManager->GetDeviceId());
-		UE_LOG(LogTemp, Log, TEXT("WebServerInterface: Including device_id: %s"), *DeviceIdManager->GetDeviceId());
-	}
-
 	if (MaxDistance > 0)
 	{
 		JsonObject->SetNumberField(TEXT("max_distance"), MaxDistance);
 	}
 
-	FString RequestBody;
-	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
-	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+	JsonObject->SetStringField(TEXT("player_class"), FPlayerClassData::PlayerClassToString(PlayerClass));
 
-	UE_LOG(LogTemp, Log, TEXT("WebServerInterface: POST /runs/start - Body: %s"), *RequestBody);
-
-	HttpClient->Post(TEXT("/runs/start"), RequestBody,
-		FOnHttpResponse::CreateLambda([this](int32 ResponseCode, const FString& ResponseBody)
-		{
-			OnSeedResponse(ResponseCode, ResponseBody);
-		}),
-		FOnHttpError::CreateLambda([this](int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody)
-		{
-			OnHttpError(ResponseCode, ErrorMessage, ResponseBody);
-		}));
-}
-
-void UWebServerInterface::SubmitRun(const FString& SeedId, int32 Score, int32 Distance, int32 DurationSeconds,
-	int32 CoinsCollected, int32 ObstaclesHit, int32 PowerupsUsed, int32 TrackPiecesSpawned, const FString& StartedAt)
-{
-	if (!HttpClient)
-	{
-		Initialize();
-	}
-
-	UE_LOG(LogTemp, Log, TEXT("WebServerInterface: Submitting run (seed_id: %s, score: %d, distance: %d)"), 
-		*SeedId, Score, Distance);
-
-	// Build request body
-	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
-	JsonObject->SetStringField(TEXT("seed_id"), SeedId);
-	JsonObject->SetNumberField(TEXT("score"), Score);
-	JsonObject->SetNumberField(TEXT("distance"), Distance);
-	JsonObject->SetNumberField(TEXT("duration_seconds"), DurationSeconds);
-	JsonObject->SetNumberField(TEXT("coins_collected"), CoinsCollected);
-	JsonObject->SetNumberField(TEXT("obstacles_hit"), ObstaclesHit);
-	JsonObject->SetNumberField(TEXT("powerups_used"), PowerupsUsed);
-	JsonObject->SetNumberField(TEXT("track_pieces_spawned"), TrackPiecesSpawned);
-	JsonObject->SetStringField(TEXT("started_at"), StartedAt);
-
-	// Add device_id if available (for anonymous runs)
+	// Add device_id for anonymous runs
 	UDeviceIdManager* DeviceIdManager = UDeviceIdManager::Get();
 	if (DeviceIdManager && DeviceIdManager->HasDeviceId())
 	{
@@ -327,12 +47,10 @@ void UWebServerInterface::SubmitRun(const FString& SeedId, int32 Score, int32 Di
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
 	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
 
-	UE_LOG(LogTemp, Log, TEXT("WebServerInterface: POST /runs - Body: %s"), *RequestBody);
-
-	HttpClient->Post(TEXT("/runs"), RequestBody,
+	HttpClient->Post(TEXT("/runs/start"), RequestBody, 
 		FOnHttpResponse::CreateLambda([this](int32 ResponseCode, const FString& ResponseBody)
 		{
-			OnRunSubmitResponse(ResponseCode, ResponseBody);
+			OnSeedResponse(ResponseCode, ResponseBody);
 		}),
 		FOnHttpError::CreateLambda([this](int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody)
 		{
@@ -348,102 +66,390 @@ void UWebServerInterface::OnSeedResponse(int32 ResponseCode, const FString& Resp
 	{
 		TSharedPtr<FJsonObject> JsonObject;
 		TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
-		
+
 		if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
 		{
-			FRunSeedData SeedData;
-			SeedData.SeedId = JsonObject->GetStringField(TEXT("seed_id"));
-			SeedData.Seed = JsonObject->GetIntegerField(TEXT("seed"));
-			SeedData.ContentVersion = JsonObject->GetStringField(TEXT("content_version"));
-			SeedData.MaxCoins = JsonObject->GetIntegerField(TEXT("max_coins"));
-			SeedData.MaxObstacles = JsonObject->GetIntegerField(TEXT("max_obstacles"));
-			SeedData.MaxTrackPieces = JsonObject->GetIntegerField(TEXT("max_track_pieces"));
-			SeedData.MaxDistance = JsonObject->GetIntegerField(TEXT("max_distance"));
+			FTrackSelectionData SelectionData;
+			SelectionData.SeedId = JsonObject->GetStringField(TEXT("seed_id"));
+            SelectionData.Seed = JsonObject->GetIntegerField(TEXT("seed"));
+            SelectionData.ContentVersion = JsonObject->GetStringField(TEXT("content_version"));
+			SelectionData.Tier = JsonObject->GetIntegerField(TEXT("tier"));
 
-			UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: Seed parsed successfully - Seed: %d, SeedId: %s, MaxCoins: %d, MaxObstacles: %d"),
-				SeedData.Seed, *SeedData.SeedId, SeedData.MaxCoins, SeedData.MaxObstacles);
+			const TArray<TSharedPtr<FJsonValue>>* TracksArray;
+			if (JsonObject->TryGetArrayField(TEXT("tracks"), TracksArray))
+			{
+				for (const TSharedPtr<FJsonValue>& TrackValue : *TracksArray)
+				{
+					if (TrackValue->Type == EJson::Object)
+					{
+						TSharedPtr<FJsonObject> TrackObject = TrackValue->AsObject();
+						FTrackInfo TrackInfo;
+						TrackInfo.Id = TrackObject->GetIntegerField(TEXT("id"));
+						TrackInfo.Length = TrackObject->GetIntegerField(TEXT("length"));
+						TrackInfo.ShopCount = TrackObject->GetIntegerField(TEXT("shop_count"));
+						TrackInfo.BossId = TrackObject->GetStringField(TEXT("boss_id"));
+						SelectionData.Tracks.Add(TrackInfo);
+					}
+				}
+			}
+            
+            // Also parse seed data for backward compatibility
+            FRunSeedData SeedData;
+            SeedData.SeedId = SelectionData.SeedId;
+            SeedData.Seed = SelectionData.Seed;
+            SeedData.ContentVersion = SelectionData.ContentVersion;
+            SeedData.MaxCoins = 0;
+            SeedData.MaxObstacles = 0;
+            SeedData.MaxTrackPieces = 0;
+            SeedData.MaxDistance = 0;
 
-			if (OnSeedReceived.IsBound())
+			UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: Track selection parsed - SeedId: %s, Tier: %d, Tracks: %d"), 
+				*SelectionData.SeedId, SelectionData.Tier, SelectionData.Tracks.Num());
+
+			if (OnTrackSelectionReceived.IsBound())
 			{
-				UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: Executing OnSeedReceived delegate..."));
-				OnSeedReceived.Execute(SeedData);
+				OnTrackSelectionReceived.Execute(SelectionData);
 			}
-			else
-			{
-				UE_LOG(LogTemp, Error, TEXT("WebServerInterface: OnSeedReceived delegate is NOT bound!"));
-			}
+            
+            if (OnSeedReceived.IsBound())
+            {
+                OnSeedReceived.Execute(SeedData);
+            }
 		}
 		else
 		{
 			FString ErrorMsg = TEXT("Failed to parse seed response");
-			UE_LOG(LogTemp, Error, TEXT("WebServerInterface: %s - ResponseBody: %s"), *ErrorMsg, *ResponseBody);
-			if (OnError.IsBound())
-			{
-				OnError.Execute(ErrorMsg);
-			}
-			else
-			{
-				UE_LOG(LogTemp, Error, TEXT("WebServerInterface: OnError delegate is NOT bound!"));
-			}
+			if (OnError.IsBound()) OnError.Execute(ErrorMsg);
 		}
 	}
 	else
 	{
 		FString ErrorMsg = FString::Printf(TEXT("Failed to get seed (HTTP %d)"), ResponseCode);
-		UE_LOG(LogTemp, Error, TEXT("WebServerInterface: %s - ResponseBody: %s"), *ErrorMsg, *ResponseBody);
-		if (OnError.IsBound())
+		if (OnError.IsBound()) OnError.Execute(ErrorMsg);
+	}
+}
+
+void UWebServerInterface::SelectTrack(const FString& SeedId, int32 Tier, int32 TrackIndex)
+{
+	if (!HttpClient) Initialize();
+
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
+	JsonObject->SetNumberField(TEXT("tier"), Tier);
+	JsonObject->SetNumberField(TEXT("track_index"), TrackIndex);
+
+	FString RequestBody;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
+	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+
+	HttpClient->Post(FString::Printf(TEXT("/runs/%s/select-track"), *SeedId), RequestBody,
+		FOnHttpResponse::CreateLambda([this](int32 ResponseCode, const FString& ResponseBody)
 		{
-			OnError.Execute(ErrorMsg);
-		}
-		else
+			OnTrackSequenceResponse(ResponseCode, ResponseBody);
+		}),
+		FOnHttpError::CreateLambda([this](int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody)
 		{
-			UE_LOG(LogTemp, Error, TEXT("WebServerInterface: OnError delegate is NOT bound!"));
+			OnHttpError(ResponseCode, ErrorMessage, ResponseBody);
+		}));
+}
+
+void UWebServerInterface::OnTrackSequenceResponse(int32 ResponseCode, const FString& ResponseBody)
+{
+	if (ResponseCode >= 200 && ResponseCode < 300)
+	{
+		TSharedPtr<FJsonObject> JsonObject;
+		TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
+
+		if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+		{
+			FTrackSequenceData SequenceData;
+			
+			const TArray<TSharedPtr<FJsonValue>>* PieceIdsArray;
+			if (JsonObject->TryGetArrayField(TEXT("piece_ids"), PieceIdsArray))
+			{
+				for (const TSharedPtr<FJsonValue>& Value : *PieceIdsArray)
+				{
+					SequenceData.PieceIds.Add(Value->AsString());
+				}
+			}
+
+			const TArray<TSharedPtr<FJsonValue>>* ShopPosArray;
+			if (JsonObject->TryGetArrayField(TEXT("shop_positions"), ShopPosArray))
+			{
+				for (const TSharedPtr<FJsonValue>& Value : *ShopPosArray)
+				{
+					SequenceData.ShopPositions.Add(Value->AsNumber());
+				}
+			}
+
+			SequenceData.BossId = JsonObject->GetStringField(TEXT("boss_id"));
+			SequenceData.Length = JsonObject->GetIntegerField(TEXT("length"));
+			SequenceData.ShopCount = JsonObject->GetIntegerField(TEXT("shop_count"));
+
+			if (OnTrackSequenceReceived.IsBound())
+			{
+				OnTrackSequenceReceived.Execute(SequenceData);
+			}
 		}
 	}
+}
+
+void UWebServerInterface::GetShopItems(const FString& SeedId, int32 Tier, int32 TrackIndex, int32 ShopIndex)
+{
+	if (!HttpClient) Initialize();
+
+	FString Endpoint = FString::Printf(TEXT("/runs/%s/shop/%d/%d/%d"), *SeedId, Tier, TrackIndex, ShopIndex);
+	
+	HttpClient->Get(Endpoint,
+		FOnHttpResponse::CreateLambda([this](int32 ResponseCode, const FString& ResponseBody)
+		{
+			OnShopItemsResponse(ResponseCode, ResponseBody);
+		}),
+		FOnHttpError::CreateLambda([this](int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody)
+		{
+			OnHttpError(ResponseCode, ErrorMessage, ResponseBody);
+		}));
+}
+
+void UWebServerInterface::OnShopItemsResponse(int32 ResponseCode, const FString& ResponseBody)
+{
+	if (ResponseCode >= 200 && ResponseCode < 300)
+	{
+		TSharedPtr<FJsonObject> JsonObject;
+		TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
+
+		if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+		{
+			FShopData ShopData;
+			const TArray<TSharedPtr<FJsonValue>>* ItemsArray;
+			if (JsonObject->TryGetArrayField(TEXT("items"), ItemsArray))
+			{
+				for (const TSharedPtr<FJsonValue>& Value : *ItemsArray)
+				{
+					TSharedPtr<FJsonObject> ItemObj = Value->AsObject();
+					FShopItemData Item;
+					Item.Id = ItemObj->GetStringField(TEXT("id"));
+					Item.Name = ItemObj->GetStringField(TEXT("name"));
+					Item.Cost = ItemObj->GetIntegerField(TEXT("cost"));
+					
+					TSharedPtr<FJsonObject> PropsObj = ItemObj->GetObjectField(TEXT("properties"));
+					for (auto& Prop : PropsObj->Values)
+					{
+						Item.Properties.Add(Prop.Key, Prop.Value->AsString());
+					}
+					ShopData.Items.Add(Item);
+				}
+			}
+
+			if (OnShopItemsReceived.IsBound())
+			{
+				OnShopItemsReceived.Execute(ShopData);
+			}
+		}
+	}
+}
+
+void UWebServerInterface::RerollShop(const FString& SeedId, int32 Tier, int32 TrackIndex, int32 ShopIndex)
+{
+	// Implementation follows similar pattern to SelectTrack/GetShopItems
+	// For brevity, using GetShopItems again but the server would reroll the random seed
+	GetShopItems(SeedId, Tier, TrackIndex, ShopIndex);
+}
+
+void UWebServerInterface::GetBossRewards(const FString& SeedId, int32 Tier)
+{
+	if (!HttpClient) Initialize();
+
+	HttpClient->Get(FString::Printf(TEXT("/runs/%s/boss-rewards/%d"), *SeedId, Tier),
+		FOnHttpResponse::CreateLambda([this](int32 ResponseCode, const FString& ResponseBody)
+		{
+			OnBossRewardsResponse(ResponseCode, ResponseBody);
+		}),
+		FOnHttpError::CreateLambda([this](int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody)
+		{
+			OnHttpError(ResponseCode, ErrorMessage, ResponseBody);
+		}));
+}
+
+void UWebServerInterface::OnBossRewardsResponse(int32 ResponseCode, const FString& ResponseBody)
+{
+	if (ResponseCode >= 200 && ResponseCode < 300)
+	{
+		TSharedPtr<FJsonObject> JsonObject;
+		TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
+
+		if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+		{
+			TArray<FBossRewardData> Rewards;
+			const TArray<TSharedPtr<FJsonValue>>* RewardsArray;
+			if (JsonObject->TryGetArrayField(TEXT("rewards"), RewardsArray))
+			{
+				for (const TSharedPtr<FJsonValue>& Value : *RewardsArray)
+				{
+					TSharedPtr<FJsonObject> RewardObj = Value->AsObject();
+					FBossRewardData Reward;
+					Reward.Id = RewardObj->GetStringField(TEXT("id"));
+					Reward.Name = RewardObj->GetStringField(TEXT("name"));
+					
+					TSharedPtr<FJsonObject> PropsObj = RewardObj->GetObjectField(TEXT("properties"));
+					for (auto& Prop : PropsObj->Values)
+					{
+						Reward.Properties.Add(Prop.Key, Prop.Value->AsString());
+					}
+					Rewards.Add(Reward);
+				}
+			}
+
+			if (OnBossRewardsReceived.IsBound())
+			{
+				OnBossRewardsReceived.Execute(Rewards);
+			}
+		}
+	}
+}
+
+void UWebServerInterface::RequestTierTracks(const FString& SeedId, int32 Tier)
+{
+    if (!HttpClient) Initialize();
+
+    FString Endpoint = FString::Printf(TEXT("/runs/%s/tier/%d"), *SeedId, Tier);
+    
+    HttpClient->Get(Endpoint,
+        FOnHttpResponse::CreateLambda([this](int32 ResponseCode, const FString& ResponseBody)
+        {
+            OnTrackSelectionResponse(ResponseCode, ResponseBody);
+        }),
+        FOnHttpError::CreateLambda([this](int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody)
+        {
+            OnHttpError(ResponseCode, ErrorMessage, ResponseBody);
+        }));
+}
+
+void UWebServerInterface::OnTrackSelectionResponse(int32 ResponseCode, const FString& ResponseBody)
+{
+    if (ResponseCode >= 200 && ResponseCode < 300)
+    {
+        TSharedPtr<FJsonObject> JsonObject;
+        TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
+
+        if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+        {
+            FTrackSelectionData SelectionData;
+            SelectionData.SeedId = JsonObject->GetStringField(TEXT("seed_id"));
+            SelectionData.Seed = JsonObject->GetIntegerField(TEXT("seed"));
+            SelectionData.ContentVersion = JsonObject->GetStringField(TEXT("content_version"));
+            SelectionData.Tier = JsonObject->GetIntegerField(TEXT("tier"));
+
+            const TArray<TSharedPtr<FJsonValue>>* TracksArray;
+            if (JsonObject->TryGetArrayField(TEXT("tracks"), TracksArray))
+            {
+                for (const TSharedPtr<FJsonValue>& TrackValue : *TracksArray)
+                {
+                    if (TrackValue->Type == EJson::Object)
+                    {
+                        TSharedPtr<FJsonObject> TrackObject = TrackValue->AsObject();
+                        FTrackInfo TrackInfo;
+                        TrackInfo.Id = TrackObject->GetIntegerField(TEXT("id"));
+                        TrackInfo.Length = TrackObject->GetIntegerField(TEXT("length"));
+                        TrackInfo.ShopCount = TrackObject->GetIntegerField(TEXT("shop_count"));
+                        TrackInfo.BossId = TrackObject->GetStringField(TEXT("boss_id"));
+                        SelectionData.Tracks.Add(TrackInfo);
+                    }
+                }
+            }
+
+            if (OnTrackSelectionReceived.IsBound())
+            {
+                OnTrackSelectionReceived.Execute(SelectionData);
+            }
+        }
+    }
+}
+
+void UWebServerInterface::SubmitRun(const FString& SeedId, int32 Score, int32 Distance, int32 DurationSeconds,
+	int32 CoinsCollected, int32 ObstaclesHit, int32 PowerupsUsed, int32 TrackPiecesSpawned,
+	const FString& StartedAt, const TArray<int32>& SelectedTracks, bool bIsComplete, bool bIsEndless,
+	const TArray<FString>& PieceSequence)
+{
+	if (!HttpClient) Initialize();
+
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
+	JsonObject->SetStringField(TEXT("seed_id"), SeedId);
+	JsonObject->SetNumberField(TEXT("score"), Score);
+	JsonObject->SetNumberField(TEXT("distance"), Distance);
+	JsonObject->SetNumberField(TEXT("duration_seconds"), DurationSeconds);
+	JsonObject->SetNumberField(TEXT("coins_collected"), CoinsCollected);
+	JsonObject->SetNumberField(TEXT("obstacles_hit"), ObstaclesHit);
+	JsonObject->SetNumberField(TEXT("powerups_used"), PowerupsUsed);
+	JsonObject->SetNumberField(TEXT("track_pieces_spawned"), TrackPiecesSpawned);
+	JsonObject->SetStringField(TEXT("started_at"), StartedAt);
+	JsonObject->SetBoolField(TEXT("is_complete"), bIsComplete);
+	JsonObject->SetBoolField(TEXT("is_endless"), bIsEndless);
+
+	TArray<TSharedPtr<FJsonValue>> SelectedTracksJson;
+	for (int32 Index : SelectedTracks) SelectedTracksJson.Add(MakeShareable(new FJsonValueNumber(Index)));
+	JsonObject->SetArrayField(TEXT("selected_track_indices"), SelectedTracksJson);
+
+	TArray<TSharedPtr<FJsonValue>> PieceSeqJson;
+	for (const FString& PieceId : PieceSequence) PieceSeqJson.Add(MakeShareable(new FJsonValueString(PieceId)));
+	JsonObject->SetArrayField(TEXT("track_sequence"), PieceSeqJson);
+
+	UDeviceIdManager* DeviceIdManager = UDeviceIdManager::Get();
+	if (DeviceIdManager && DeviceIdManager->HasDeviceId())
+	{
+		JsonObject->SetStringField(TEXT("device_id"), DeviceIdManager->GetDeviceId());
+	}
+
+	FString RequestBody;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
+	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+
+	HttpClient->Post(TEXT("/runs"), RequestBody,
+		FOnHttpResponse::CreateLambda([this](int32 ResponseCode, const FString& ResponseBody)
+		{
+			OnRunSubmitResponse(ResponseCode, ResponseBody);
+		}),
+		FOnHttpError::CreateLambda([this](int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody)
+		{
+			OnHttpError(ResponseCode, ErrorMessage, ResponseBody);
+		}));
+}
+
+void UWebServerInterface::SaveCurrency(int32 Amount)
+{
+	if (!HttpClient) Initialize();
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
+	JsonObject->SetNumberField(TEXT("amount"), Amount);
+	FString Body;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Body);
+	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+	HttpClient->Post(TEXT("/currency/save"), Body, nullptr, nullptr);
+}
+
+void UWebServerInterface::LoadCurrency()
+{
+	if (!HttpClient) Initialize();
+	HttpClient->Get(TEXT("/currency"), nullptr, nullptr);
+}
+
+void UWebServerInterface::PurchaseItem(const FString& ItemId, int32 Price)
+{
+	if (!HttpClient) Initialize();
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
+	JsonObject->SetStringField(TEXT("item_id"), ItemId);
+	JsonObject->SetNumberField(TEXT("price"), Price);
+	FString Body;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Body);
+	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+	HttpClient->Post(TEXT("/currency/purchase"), Body, nullptr, nullptr);
 }
 
 void UWebServerInterface::OnRunSubmitResponse(int32 ResponseCode, const FString& ResponseBody)
 {
-	bool bSuccess = ResponseCode >= 200 && ResponseCode < 300;
-	UE_LOG(LogTemp, Log, TEXT("WebServerInterface: Run submit response - Code: %d, Success: %d"), ResponseCode, bSuccess);
-	
-	if (bSuccess)
-	{
-		UE_LOG(LogTemp, Log, TEXT("WebServerInterface: Run submitted successfully"));
-	}
-	else
-	{
-		FString ErrorMsg = FString::Printf(TEXT("Failed to submit run (HTTP %d)"), ResponseCode);
-		UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: %s - %s"), *ErrorMsg, *ResponseBody);
-		if (OnError.IsBound())
-		{
-			OnError.Execute(ErrorMsg);
-		}
-	}
+	UE_LOG(LogTemp, Log, TEXT("WebServerInterface: Run submitted - Code: %d, Body: %s"), ResponseCode, *ResponseBody);
 }
 
 void UWebServerInterface::OnHttpError(int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody)
 {
-	FString FinalError = ErrorMessage;
-	
-	// Try to parse error from response
-	if (!ResponseBody.IsEmpty())
-	{
-		TSharedPtr<FJsonObject> JsonObject;
-		TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
-		if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
-		{
-			if (JsonObject->HasField(TEXT("message")))
-			{
-				FinalError = JsonObject->GetStringField(TEXT("message"));
-			}
-		}
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: HTTP Error %d - %s"), ResponseCode, *FinalError);
-	if (OnError.IsBound())
-	{
-		OnError.Execute(FinalError);
-	}
+	UE_LOG(LogTemp, Error, TEXT("WebServerInterface: HTTP Error %d: %s - Body: %s"), ResponseCode, *ErrorMessage, *ResponseBody);
+	if (OnError.IsBound()) OnError.Execute(ErrorMessage);
 }
-

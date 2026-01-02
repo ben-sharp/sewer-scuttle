@@ -9,6 +9,11 @@
 
 void SMainMenuWidget::Construct(const FArguments& InArgs)
 {
+	OnPlayClicked = InArgs._OnPlayClicked;
+	OnShopClicked = InArgs._OnShopClicked;
+	OnLeaderboardClicked = InArgs._OnLeaderboardClicked;
+	OnSettingsClicked = InArgs._OnSettingsClicked;
+
 	ChildSlot
 	[
 		SNew(SOverlay)
@@ -19,7 +24,7 @@ void SMainMenuWidget::Construct(const FArguments& InArgs)
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 30)
+			.Padding(FMargin(0, 0, 0, 30))
 			[
 				SNew(STextBlock)
 				.Text(FText::FromString(TEXT("Sewer Scuttle")))
@@ -29,7 +34,7 @@ void SMainMenuWidget::Construct(const FArguments& InArgs)
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 20)
+			.Padding(FMargin(0, 0, 0, 20))
 			[
 				SNew(SButton)
 				.Text(FText::FromString(TEXT("Play")))
@@ -38,7 +43,7 @@ void SMainMenuWidget::Construct(const FArguments& InArgs)
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 20)
+			.Padding(FMargin(0, 0, 0, 20))
 			[
 				SNew(SButton)
 				.Text(FText::FromString(TEXT("Shop")))
@@ -47,7 +52,7 @@ void SMainMenuWidget::Construct(const FArguments& InArgs)
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0, 0, 0, 20)
+			.Padding(FMargin(0, 0, 0, 20))
 			[
 				SNew(SButton)
 				.Text(FText::FromString(TEXT("Leaderboard")))

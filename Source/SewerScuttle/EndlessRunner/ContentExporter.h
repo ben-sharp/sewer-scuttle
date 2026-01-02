@@ -9,7 +9,7 @@
 class UContentRegistry;
 
 /**
- * Content Exporter - Exports content definitions to JSON
+ * Handles exporting game content to JSON for the backend
  */
 UCLASS()
 class SEWERSCUTTLE_API UContentExporter : public UObject
@@ -17,30 +17,10 @@ class SEWERSCUTTLE_API UContentExporter : public UObject
 	GENERATED_BODY()
 
 public:
-	UContentExporter();
+	/** Export registry content to a JSON string */
+	FString ExportToJson(UContentRegistry* Registry, const FString& Version);
 
-	/** Export all content to JSON string */
-	UFUNCTION(BlueprintCallable, Category = "Content")
-	FString ExportToJSON() const;
-
-	/** Export to file */
-	UFUNCTION(BlueprintCallable, Category = "Content")
-	bool ExportToFile(const FString& FilePath) const;
-
-	/** Export to Backend directory (dev mode) */
-	UFUNCTION(BlueprintCallable, Category = "Content")
-	bool ExportToBackend() const;
-
-	/** Export to API (production) */
-	UFUNCTION(BlueprintCallable, Category = "Content")
-	void ExportToAPI(const FString& ApiUrl) const;
-
-	/** Set content registry */
-	UFUNCTION(BlueprintCallable, Category = "Content")
-	void SetContentRegistry(UContentRegistry* Registry) { ContentRegistry = Registry; }
-
-private:
-	UPROPERTY()
-	UContentRegistry* ContentRegistry;
+	/** Export registry content to a file */
+	bool ExportToFile(UContentRegistry* Registry, const FString& Version, const FString& FilePath);
 };
 

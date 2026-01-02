@@ -13,7 +13,7 @@ class ViewContentDefinition extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            // No edit/delete actions - content is managed through versions
+            Actions\EditAction::make(),
         ];
     }
 }

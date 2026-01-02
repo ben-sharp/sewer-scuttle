@@ -74,6 +74,32 @@ struct FPlayerClassData
 
 	/** Get default class data for a specific class */
 	static FPlayerClassData GetDefaultClassData(EPlayerClass Class);
+
+	/** Convert enum to string for backend/JSON */
+	static FString PlayerClassToString(EPlayerClass Class)
+	{
+		switch (Class)
+		{
+			case EPlayerClass::Rogue: return TEXT("Rogue");
+			case EPlayerClass::Enforcer: return TEXT("Enforcer");
+			case EPlayerClass::Joker: return TEXT("Joker");
+			case EPlayerClass::Scout: return TEXT("Scout");
+			case EPlayerClass::Collector: return TEXT("Collector");
+			case EPlayerClass::Vanilla:
+			default: return TEXT("Vanilla");
+		}
+	}
+
+	/** Convert string from backend/JSON to enum */
+	static EPlayerClass StringToPlayerClass(const FString& ClassStr)
+	{
+		if (ClassStr.Equals(TEXT("Rogue"), ESearchCase::IgnoreCase)) return EPlayerClass::Rogue;
+		if (ClassStr.Equals(TEXT("Enforcer"), ESearchCase::IgnoreCase)) return EPlayerClass::Enforcer;
+		if (ClassStr.Equals(TEXT("Joker"), ESearchCase::IgnoreCase)) return EPlayerClass::Joker;
+		if (ClassStr.Equals(TEXT("Scout"), ESearchCase::IgnoreCase)) return EPlayerClass::Scout;
+		if (ClassStr.Equals(TEXT("Collector"), ESearchCase::IgnoreCase)) return EPlayerClass::Collector;
+		return EPlayerClass::Vanilla;
+	}
 };
 
 

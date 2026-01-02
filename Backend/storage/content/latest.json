@@ -1,137 +1,133 @@
 {
-  "version": "1.0.0",
-  "exported_at": "2025-12-31T23:55:11.594Z",
-  "definitions": [
-    {
-      "type": "track_piece",
-      "id": "DA_TrackPiece_Start",
-      "name": "Start Room",
-      "properties": {
-        "length": 1600.0,
-        "min_difficulty": 0,
-        "max_difficulty": -1,
-        "weight": 1,
-        "is_first_piece": true,
-        "spawn_configs": [{"lane":1,"forward_position":0.00,"spawn_type":"coin","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"coin","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"coin","spawn_probability":1.00}]
-      }
-    },
-    {
-      "type": "track_piece",
-      "id": "DA_TrackPiece_Small_Room_Left",
-      "name": "Small room left",
-      "properties": {
-        "length": 1600.0,
-        "min_difficulty": 0,
-        "max_difficulty": -1,
-        "weight": 1,
-        "is_first_piece": false,
-        "spawn_configs": [{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00}]
-      }
-    },
-    {
-      "type": "track_piece",
-      "id": "DA_TrackPiece_Small_Room_Right",
-      "name": "Small room right",
-      "properties": {
-        "length": 1600.0,
-        "min_difficulty": 0,
-        "max_difficulty": -1,
-        "weight": 1,
-        "is_first_piece": false,
-        "spawn_configs": [{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00}]
-      }
-    },
-    {
-      "type": "track_piece",
-      "id": "DA_TrackPiece_Small_Room_Straight",
-      "name": "Small room",
-      "properties": {
-        "length": 1600.0,
-        "min_difficulty": 0,
-        "max_difficulty": -1,
-        "weight": 1,
-        "is_first_piece": false,
-        "spawn_configs": [{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00},{"lane":1,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00}]
-      }
-    },
-    {
-      "type": "track_piece",
-      "id": "DA_TrackPiece_Small_Pit_Room_Straight",
-      "name": "Small Pit Room",
-      "properties": {
-        "length": 1600.0,
-        "min_difficulty": 0,
-        "max_difficulty": -1,
-        "weight": 1,
-        "is_first_piece": false,
-        "spawn_configs": []
-      }
-    },
-    {
-      "type": "track_piece",
-      "id": "DA_TrackPiece_Long_Room",
-      "name": "Long room",
-      "properties": {
-        "length": 2400.0,
-        "min_difficulty": 0,
-        "max_difficulty": -1,
-        "weight": 1,
-        "is_first_piece": false,
-        "spawn_configs": []
-      }
-    },
-    {
-      "type": "track_piece",
-      "id": "DA_TrackPiece_Straight_Large",
-      "name": "Floor Long",
-      "properties": {
-        "length": 1600.0,
-        "min_difficulty": 0,
-        "max_difficulty": -1,
-        "weight": 1,
-        "is_first_piece": false,
-        "spawn_configs": [{"lane":2,"forward_position":0.00,"spawn_type":"obstacle","spawn_probability":1.00}]
-      }
-    },
-    {
-      "type": "track_piece",
-      "id": "DA_TrackPiece_Turn_Left",
-      "name": "Turn Right",
-      "properties": {
-        "length": 800.0,
-        "min_difficulty": 0,
-        "max_difficulty": -1,
-        "weight": 1,
-        "is_first_piece": false,
-        "spawn_configs": []
-      }
-    },
-    {
-      "type": "obstacle",
-      "id": "OB_Pit_Death",
-      "name": "Pit Death",
-      "properties": {
-        "obstacle_type": "full",
-        "damage": 10.0,
-        "lives_lost": 10,
-        "is_breakable": false,
-        "ignore_last_stand": true,
-        "allowed_classes": ["vanilla","rogue","enforcer","joker","scout","collector"],
-        "weight": 1
-      }
-    },
-    {
-      "type": "powerup",
-      "id": "PU_Increase_Speed",
-      "name": "+ SPEED",
-      "properties": {
-        "duration": 0.0,
-        "allowed_classes": ["vanilla","rogue","enforcer","joker","scout","collector"],
-        "permanent_stat_modifier_effect": "GE_Speed_Up_C",
-        "stat_type_to_modify": "BaseSpeed",
-        "modification_value": 100.0,
-        "weight": 1
-      }
-    }
-  ]
+	"version": "1.0.0",
+	"definitions": [
+		{
+			"content_id": "DA_TrackPiece_Long_Room",
+			"name": "Long room",
+			"type": "track_piece",
+			"properties":
+			{
+				"length": 2400,
+				"piece_type": "Normal",
+				"is_first_piece": false
+			}
+		},
+		{
+			"content_id": "DA_TrackPiece_Shop",
+			"name": "Shop",
+			"type": "track_piece",
+			"properties":
+			{
+				"length": 1600,
+				"piece_type": "Shop",
+				"is_first_piece": false
+			}
+		},
+		{
+			"content_id": "DA_TrackPiece_Boss_Pit",
+			"name": "Boss Pit Room",
+			"type": "track_piece",
+			"properties":
+			{
+				"length": 1600,
+				"piece_type": "Boss",
+				"is_first_piece": false
+			}
+		},
+		{
+			"content_id": "DA_TrackPiece_Small_Pit_Room_Straight",
+			"name": "Small Pit Room",
+			"type": "track_piece",
+			"properties":
+			{
+				"length": 1600,
+				"piece_type": "Normal",
+				"is_first_piece": false
+			}
+		},
+		{
+			"content_id": "DA_TrackPiece_Small_Room_Left",
+			"name": "Small room left",
+			"type": "track_piece",
+			"properties":
+			{
+				"length": 1600,
+				"piece_type": "Normal",
+				"is_first_piece": false
+			}
+		},
+		{
+			"content_id": "DA_TrackPiece_Small_Room_Right",
+			"name": "Small room right",
+			"type": "track_piece",
+			"properties":
+			{
+				"length": 1600,
+				"piece_type": "Normal",
+				"is_first_piece": false
+			}
+		},
+		{
+			"content_id": "DA_TrackPiece_Small_Room_Straight",
+			"name": "Small room",
+			"type": "track_piece",
+			"properties":
+			{
+				"length": 1600,
+				"piece_type": "Normal",
+				"is_first_piece": false
+			}
+		},
+		{
+			"content_id": "DA_TrackPiece_Start",
+			"name": "Start Room",
+			"type": "track_piece",
+			"properties":
+			{
+				"length": 1600,
+				"piece_type": "Normal",
+				"is_first_piece": true
+			}
+		},
+		{
+			"content_id": "OB_Pit_Death",
+			"name": "Pit Death",
+			"type": "obstacle",
+			"properties":
+			{
+				"damage": 1,
+				"lives_lost": 10
+			}
+		},
+		{
+			"content_id": "OB_Brick",
+			"name": "Brick",
+			"type": "obstacle",
+			"properties":
+			{
+				"damage": 1,
+				"lives_lost": 1
+			}
+		},
+		{
+			"content_id": "OB_Barrel",
+			"name": "Barrel",
+			"type": "obstacle",
+			"properties":
+			{
+				"damage": 1,
+				"lives_lost": 1
+			}
+		},
+		{
+			"content_id": "PU_Increase_Speed",
+			"name": "+ SPEED",
+			"type": "powerup",
+			"properties":
+			{
+				"duration": 0,
+				"base_cost": 10
+			}
+		}
+	]
 }

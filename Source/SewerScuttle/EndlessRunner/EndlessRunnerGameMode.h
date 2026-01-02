@@ -15,14 +15,20 @@ class ARabbitCharacter;
 class AEndlessRunnerHUD;
 class UPlayerClassDefinition;
 class UWebServerInterface;
+class UPowerUpDefinition;
+class UContentRegistry;
 
 UENUM(BlueprintType)
 enum class EGameState : uint8
 {
-	Menu		UMETA(DisplayName = "Menu"),
-	Playing		UMETA(DisplayName = "Playing"),
-	Paused		UMETA(DisplayName = "Paused"),
-	GameOver	UMETA(DisplayName = "Game Over")
+	Menu			UMETA(DisplayName = "Menu"),
+	TrackSelection	UMETA(DisplayName = "Track Selection"),
+	Playing			UMETA(DisplayName = "Playing"),
+	Shop			UMETA(DisplayName = "Shop"),
+	BossEncounter	UMETA(DisplayName = "Boss Encounter"),
+	BossReward		UMETA(DisplayName = "Boss Reward"),
+	Paused			UMETA(DisplayName = "Paused"),
+	GameOver		UMETA(DisplayName = "Game Over")
 };
 
 /**
@@ -89,6 +95,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Game")
 	ATrackGenerator* GetTrackGenerator() const { return TrackGenerator; }
 
+	/** Get content registry */
+	UFUNCTION(BlueprintPure, Category = "Game")
+	UContentRegistry* GetContentRegistry() const { return ContentRegistry; }
+
 	/** Get gameplay manager */
 	UFUNCTION(BlueprintPure, Category = "Game")
 	UGameplayManager* GetGameplayManager() const { return GameplayManager; }
@@ -128,6 +138,22 @@ public:
 	/** Get run currency (temporary, resets each game) */
 	UFUNCTION(BlueprintPure, Category = "Score")
 	int32 GetRunCurrency() const { return RunCurrency; }
+
+	/** Get track currency (for shop) */
+	UFUNCTION(BlueprintPure, Category = "Score")
+	int32 GetTrackCurrency() const { return TrackCurrency; }
+
+	/** Get current shop items */
+	const FShopData& GetShopItems() const { return ShopItems; }
+
+	/** Get current boss rewards */
+	const TArray<FBossRewardData>& GetBossRewards() const { return BossRewards; }
+
+	/** Get current track selection data */
+	const FTrackSelectionData& GetCurrentTrackSelection() const { return CurrentTrackSelection; }
+
+	/** Get current shop index */
+	int32 GetCurrentShopIndex() const { return CurrentShopIndex; }
 
 	/** Add to run currency (temporary, resets each game) */
 	UFUNCTION(BlueprintCallable, Category = "Score")
@@ -192,6 +218,94 @@ public:
 	UFUNCTION()
 	void OnSeedRequestError(const FString& ErrorMessage);
 
+	/** Handle track selection received from server */
+	UFUNCTION()
+	void OnTrackSelectionReceived(const FTrackSelectionData& SelectionData);
+
+	/** Handle track sequence received from server */
+	UFUNCTION()
+	void OnTrackSequenceReceived(const FTrackSequenceData& SequenceData);
+
+	/** Handle shop items received from server */
+	UFUNCTION()
+	void OnShopItemsReceived(const FShopData& ShopData);
+
+	/** Handle boss rewards received from server */
+	UFUNCTION()
+	void OnBossRewardsReceived(const TArray<FBossRewardData>& Rewards);
+
+	/** Show track selection UI for current tier */
+	UFUNCTION(BlueprintCallable, Category = "Track Progression")
+	void ShowTrackSelection();
+
+	/** Select a track for the current tier */
+	UFUNCTION(BlueprintCallable, Category = "Track Progression")
+	void SelectTrack(int32 TrackIndex);
+
+	/** Called when player enters a shop room trigger in BP */
+	UFUNCTION(BlueprintCallable, Category = "Dungeon Runner")
+	void OnShopTriggerOverlap(ATrackPiece* ShopPiece);
+
+	/** Called when player enters a boss room trigger in BP */
+	UFUNCTION(BlueprintCallable, Category = "Dungeon Runner")
+	void OnBossTriggerOverlap(ATrackPiece* BossPiece);
+
+	/** Called when player reaches the end of a boss room trigger in BP */
+	UFUNCTION(BlueprintCallable, Category = "Dungeon Runner")
+	void OnBossEndTriggerOverlap(ATrackPiece* BossPiece);
+
+	/** Enter shop (pause game, show shop UI) */
+	UFUNCTION(BlueprintCallable, Category = "Shop")
+	void EnterShop(int32 ShopIndex);
+
+	/** Exit shop (resume game) */
+	UFUNCTION(BlueprintCallable, Category = "Shop")
+	void ExitShop();
+
+	/** Purchase a powerup from shop */
+	UFUNCTION(BlueprintCallable, Category = "Shop")
+	void PurchasePowerUp(const FString& PowerUpId, int32 Cost);
+
+	/** Reroll shop items */
+	UFUNCTION(BlueprintCallable, Category = "Shop")
+	void RerollShop(int32 ShopIndex);
+
+	/** Called when boss piece is reached */
+	UFUNCTION(BlueprintCallable, Category = "Boss")
+	void OnBossReached();
+
+	/** Called when boss is defeated */
+	UFUNCTION(BlueprintCallable, Category = "Boss")
+	void OnBossDefeated();
+
+	/** Select a boss reward */
+	UFUNCTION(BlueprintCallable, Category = "Boss")
+	void SelectBossReward(const FString& RewardId);
+
+	/** Advance to next tier (after boss reward selection) */
+	UFUNCTION(BlueprintCallable, Category = "Track Progression")
+	void AdvanceToNextTier();
+
+	/** Complete the run (after final boss) */
+	UFUNCTION(BlueprintCallable, Category = "Track Progression")
+	void CompleteRun();
+
+	/** Show endless mode option (after final boss) */
+	UFUNCTION(BlueprintCallable, Category = "Track Progression")
+	void ShowEndlessModeOption();
+
+	/** Start endless mode */
+	UFUNCTION(BlueprintCallable, Category = "Track Progression")
+	void StartEndlessMode();
+
+	/** Called when shop piece is reached (from TrackGenerator delegate) */
+	UFUNCTION()
+	void OnShopPieceReached();
+
+	/** Called when boss piece is reached (from TrackGenerator delegate) */
+	UFUNCTION()
+	void OnBossPieceReached();
+
 	/** Check if magnet is active */
 	UFUNCTION(BlueprintPure, Category = "PowerUp")
 	bool IsMagnetActive() const { return bMagnetActive; }
@@ -200,10 +314,17 @@ public:
 	UFUNCTION(BlueprintPure, Category = "PowerUp")
 	bool IsAutopilotActive() const { return bAutopilotActive; }
 
+	/** Find powerup definition by ID */
+	UPowerUpDefinition* FindPowerUpDefinitionById(const FString& PowerUpId) const;
+
 protected:
 	/** Track generator reference */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "References")
 	ATrackGenerator* TrackGenerator;
+
+	/** Content registry */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Managers")
+	UContentRegistry* ContentRegistry;
 
 	/** Gameplay manager */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Managers")
@@ -228,6 +349,9 @@ protected:
 	/** Distance traveled (in game units) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	float DistanceTraveled = 0.0f;
+
+	/** Distance from previously completed tracks in this run */
+	float TotalPreviousDistance = 0.0f;
 
 	/** Previous distance for score calculation */
 	float PreviousDistanceForScore = 0.0f;
@@ -309,6 +433,44 @@ protected:
 	/** Seeded random stream for deterministic generation */
 	FRandomStream SeededRandomStream;
 
+	/** Current tier (1, 2, or 3) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track Progression")
+	int32 CurrentTier = 1;
+
+	/** Current track index within the tier (0, 1, or 2) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track Progression")
+	int32 CurrentTrackIndex = 0;
+
+	/** Track currency (collected during current track, resets per track) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track Progression")
+	int32 TrackCurrency = 0;
+
+	/** Current track sequence data (piece IDs, shop positions, boss ID) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track Progression")
+	FTrackSequenceData TrackSequence;
+
+	/** Current shop index */
+	int32 CurrentShopIndex = -1;
+
+	/** Current shop items */
+	FShopData ShopItems;
+
+	/** Current boss rewards */
+	TArray<FBossRewardData> BossRewards;
+
+	/** Current track selection data from server */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track Progression")
+	FTrackSelectionData CurrentTrackSelection;
+
+	/** Selected track indices (one per tier) */
+	TArray<int32> SelectedTrackIndices;
+
+	/** Full sequence of piece IDs spawned in this run */
+	TArray<FString> FullPieceSequence;
+
+	/** Is the player in endless mode */
+	bool bIsEndlessMode = false;
+
 protected:
 	/** Set up Enhanced Input Mapping Context */
 	void SetupEnhancedInput();
@@ -361,4 +523,3 @@ private:
 	FTimerHandle MagnetTimerHandle;
 	FTimerHandle AutopilotTimerHandle;
 };
-

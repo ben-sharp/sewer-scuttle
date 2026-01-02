@@ -3,79 +3,21 @@
 #include "ContentExportLibrary.h"
 #include "ContentRegistry.h"
 #include "ContentExporter.h"
+#include "Misc/MessageDialog.h"
 
-bool UContentExportLibrary::ExportContentToBackend(const FString& Version)
+void UContentExportLibrary::ExportGameContent(const FString& Version, const FString& FilePath)
 {
 	UContentRegistry* Registry = NewObject<UContentRegistry>();
+	Registry->GatherContent();
+
 	UContentExporter* Exporter = NewObject<UContentExporter>();
-
-	if (!Registry || !Exporter)
+	if (Exporter->ExportToFile(Registry, Version, FilePath))
 	{
-		UE_LOG(LogTemp, Error, TEXT("ContentExportLibrary: Failed to create Content Registry or Exporter"));
-		return false;
-	}
-
-	Exporter->SetContentRegistry(Registry);
-	Registry->SetContentVersion(Version);
-	Registry->CollectAllContent();
-
-	bool bSuccess = Exporter->ExportToBackend();
-	if (bSuccess)
-	{
-		UE_LOG(LogTemp, Log, TEXT("ContentExportLibrary: Content version %s exported successfully to Backend/storage/content/latest.json"), *Version);
+		FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(FString::Printf(TEXT("Successfully exported content to: %s"), *FilePath)));
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("ContentExportLibrary: Failed to export content"));
+		FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(TEXT("Failed to export content!")));
 	}
-
-	return bSuccess;
-}
-
-bool UContentExportLibrary::ExportContentToFile(const FString& FilePath, const FString& Version)
-{
-	UContentRegistry* Registry = NewObject<UContentRegistry>();
-	UContentExporter* Exporter = NewObject<UContentExporter>();
-
-	if (!Registry || !Exporter)
-	{
-		UE_LOG(LogTemp, Error, TEXT("ContentExportLibrary: Failed to create Content Registry or Exporter"));
-		return false;
-	}
-
-	Exporter->SetContentRegistry(Registry);
-	Registry->SetContentVersion(Version);
-	Registry->CollectAllContent();
-
-	bool bSuccess = Exporter->ExportToFile(FilePath);
-	if (bSuccess)
-	{
-		UE_LOG(LogTemp, Log, TEXT("ContentExportLibrary: Content version %s exported successfully to %s"), *Version, *FilePath);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("ContentExportLibrary: Failed to export content to %s"), *FilePath);
-	}
-
-	return bSuccess;
-}
-
-void UContentExportLibrary::ExportContentToAPI(const FString& ApiUrl, const FString& Version)
-{
-	UContentRegistry* Registry = NewObject<UContentRegistry>();
-	UContentExporter* Exporter = NewObject<UContentExporter>();
-
-	if (!Registry || !Exporter)
-	{
-		UE_LOG(LogTemp, Error, TEXT("ContentExportLibrary: Failed to create Content Registry or Exporter"));
-		return;
-	}
-
-	Exporter->SetContentRegistry(Registry);
-	Registry->SetContentVersion(Version);
-	Registry->CollectAllContent();
-
-	Exporter->ExportToAPI(ApiUrl);
-	UE_LOG(LogTemp, Log, TEXT("ContentExportLibrary: Content version %s export request sent to %s"), *Version, *ApiUrl);
 }
 

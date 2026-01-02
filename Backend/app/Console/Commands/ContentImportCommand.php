@@ -12,41 +12,34 @@ class ContentImportCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'content:import {file : Path to the content JSON file}';
+    protected $signature = 'app:import-content {file=content/latest.json}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Import content definitions from a JSON file';
+    protected $description = 'Import game content definitions from a JSON file';
 
     /**
      * Execute the console command.
      */
-    public function handle(ContentImportService $importService): int
+    public function handle(ContentImportService $service)
     {
-        $filePath = $this->argument('file');
-
-        // Resolve relative paths
-        if (!str_starts_with($filePath, '/') && !str_starts_with($filePath, '\\')) {
-            $filePath = base_path($filePath);
-        }
-
-        $this->info("Importing content from: {$filePath}");
+        $file = $this->argument('file');
+        $this->info("Importing content from: {$file}");
 
         try {
-            $contentVersion = $importService->importFromFile($filePath);
-
-            $this->info("Content imported successfully!");
-            $this->info("Version: {$contentVersion->version}");
-            $this->info("Definitions: " . $contentVersion->definitions()->count());
-            $this->info("Active: " . ($contentVersion->is_active ? 'Yes' : 'No'));
-
-            return Command::SUCCESS;
+            $results = $service->importFromFile($file);
+            $this->info("Import completed successfully!");
+            $this->table(['Metric', 'Count'], [
+                ['Total', $results['total']],
+                ['Created', $results['created']],
+                ['Updated', $results['updated']],
+                ['Errors', $results['errors']],
+            ]);
         } catch (\Exception $e) {
-            $this->error("Failed to import content: " . $e->getMessage());
-            return Command::FAILURE;
+            $this->error("Import failed: " . $e->getMessage());
         }
     }
 }

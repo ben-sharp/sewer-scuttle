@@ -17,6 +17,42 @@ enum class ESpawnPointType : uint8
 	Obstacle	UMETA(DisplayName = "Obstacle")
 };
 
+namespace SpawnPointUtils
+{
+	static FString ToString(ESpawnPointType Type)
+	{
+		switch (Type)
+		{
+			case ESpawnPointType::PowerUp: return TEXT("PowerUp");
+			case ESpawnPointType::Obstacle: return TEXT("Obstacle");
+			case ESpawnPointType::Coin:
+			default: return TEXT("Coin");
+		}
+	}
+
+	static ESpawnPointType FromString(const FString& TypeStr)
+	{
+		if (TypeStr.Equals(TEXT("PowerUp"), ESearchCase::IgnoreCase)) return ESpawnPointType::PowerUp;
+		if (TypeStr.Equals(TEXT("Obstacle"), ESearchCase::IgnoreCase)) return ESpawnPointType::Obstacle;
+		return ESpawnPointType::Coin;
+	}
+}
+
+/** Struct for weighted selection of a content definition */
+USTRUCT(BlueprintType)
+struct FWeightedDefinition
+{
+	GENERATED_BODY()
+
+	/** The definition data asset (Obstacle, PowerUp, or Collectible) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UDataAsset* Definition = nullptr;
+
+	/** Relative weight for selection (higher = more likely) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0"))
+	float Weight = 1.0f;
+};
+
 USTRUCT(BlueprintType)
 struct FSpawnPoint
 {
@@ -34,9 +70,9 @@ struct FSpawnPoint
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	ESpawnPointType SpawnType = ESpawnPointType::Coin;
 
-	/** Class to spawn at this point */
+	/** Possible definitions that can spawn here with weights (from components) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSubclassOf<AActor> SpawnClass;
+	TArray<FWeightedDefinition> WeightedDefinitions;
 
 	/** Optional: Name of a Scene component in the track piece to use as spawn position (overrides Lane/ForwardPosition) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -61,9 +97,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "!Track")
 	float GetLength() const { return Length; }
 
-	/** Set length of this track piece */
-	UFUNCTION(BlueprintCallable, Category = "!Track")
+	/** Set length of this track piece (called by Generator from DA) */
 	void SetLength(float NewLength) { Length = NewLength; }
+
+	/** Get lane width */
+	UFUNCTION(BlueprintPure, Category = "!Track")
+	float GetLaneWidth() const { return LaneWidth; }
+
+	/** Set lane width (called by Generator from DA) */
+	void SetLaneWidth(float NewWidth) { LaneWidth = NewWidth; }
 
 	/** Get spawn points */
 	UFUNCTION(BlueprintPure, Category = "!Track")
@@ -146,16 +188,16 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "!Track|Connection Points")
 	TArray<USceneComponent*> EndConnections;
 
-	/** Length of this track piece in units (fallback if connection points not set) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "!Track", meta = (ClampMin = "100.0", ClampMax = "10000.0"))
+	/** Length of this track piece in units (Applied from DA) */
+	UPROPERTY(VisibleInstanceOnly, Category = "!Track")
 	float Length = 1000.0f;
 
-	/** Spawn points for collectibles and obstacles */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "!Track")
+	/** Spawn points for collectibles and obstacles (Populated from Components) */
+	UPROPERTY(VisibleInstanceOnly, Category = "!Track")
 	TArray<FSpawnPoint> SpawnPoints;
 
-	/** Lane width (should match player's lane width) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "!Track", meta = (ClampMin = "100.0", ClampMax = "500.0"))
+	/** Lane width (Applied from DA) */
+	UPROPERTY(VisibleInstanceOnly, Category = "!Track")
 	float LaneWidth = 200.0f;
 
 	/** Actors spawned on this track piece (coins, obstacles, powerups, etc.) */

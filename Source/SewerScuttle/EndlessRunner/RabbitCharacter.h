@@ -166,6 +166,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Class")
 	bool GetCanBreakObstacles() const { return bCanBreakObstacles; }
 
+	/** Fixed Y coordinates for each lane (locked in for flat track pieces) */
+	static constexpr float LANE_LEFT_Y = -200.0f;   // Left lane fixed Y coordinate
+	static constexpr float LANE_CENTER_Y = 0.0f;    // Center lane fixed Y coordinate
+	static constexpr float LANE_RIGHT_Y = 200.0f;   // Right lane fixed Y coordinate
+
 	/** Input action handlers */
 	void OnMoveLeft(const FInputActionValue& Value);
 	void OnMoveRight(const FInputActionValue& Value);
@@ -186,11 +191,6 @@ protected:
 	/** Width of each lane - distance between lane centers */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lane", meta = (ClampMin = "100.0", ClampMax = "500.0"))
 	float LaneWidth = 200.0f;
-
-	/** Fixed Y coordinates for each lane (locked in for flat track pieces) */
-	static constexpr float LANE_LEFT_Y = -200.0f;   // Left lane fixed Y coordinate
-	static constexpr float LANE_CENTER_Y = 0.0f;    // Center lane fixed Y coordinate
-	static constexpr float LANE_RIGHT_Y = 200.0f;   // Right lane fixed Y coordinate
 
 	/** Speed of lane transition (can be modified by powerups) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lane", meta = (ClampMin = "1.0", ClampMax = "20.0"))

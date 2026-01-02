@@ -151,6 +151,27 @@ void SEndlessRunnerHUD::Construct(const FArguments& InArgs, AEndlessRunnerGameMo
 	];
 }
 
+void SEndlessRunnerHUD::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+
+	if (GameMode.IsValid())
+	{
+		UpdateHUD(
+			GameMode->GetScore(),
+			GameMode->GetDistanceTraveled(),
+			GameMode->GetTrackCurrency(),
+			GameMode->GetPlayerSpeed(),
+			GameMode->GetGameTime(),
+			GameMode->GetLives(),
+			GameMode->GetCurrentJumpCount(),
+			GameMode->GetMaxJumpCount(),
+			GameMode->GetActivePowerUpStatus(),
+			GameMode->GetTrackSeed()
+		);
+	}
+}
+
 void SEndlessRunnerHUD::UpdateHUD(int32 Score, float Distance, int32 Coins, float Speed, float Time, int32 Lives, int32 CurrentJumpCount, int32 MaxJumpCount, const FString& PowerUpStatus, int32 Seed)
 {
 	if (ScoreText.IsValid())

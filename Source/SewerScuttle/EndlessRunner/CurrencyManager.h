@@ -9,7 +9,7 @@
 class UWebServerInterface;
 
 /**
- * Manages persistent coins (wallet) - server-backed currency that persists across sessions
+ * Manages local currency and interfaces with web server
  */
 UCLASS()
 class SEWERSCUTTLE_API UCurrencyManager : public UObject
@@ -19,61 +19,47 @@ class SEWERSCUTTLE_API UCurrencyManager : public UObject
 public:
 	UCurrencyManager();
 
-	/** Initialize currency manager (loads coins from server) */
-	UFUNCTION(BlueprintCallable, Category = "Coins")
+	/** Initialize currency manager */
+	UFUNCTION(BlueprintCallable, Category = "Currency")
 	void Initialize();
 
-	/** Get current coins (persistent wallet) */
-	UFUNCTION(BlueprintPure, Category = "Coins")
-	int32 GetCoins() const { return Coins; }
+	/** Get current currency */
+	UFUNCTION(BlueprintPure, Category = "Currency")
+	int32 GetCurrency() const { return Currency; }
 
-	/** Add coins to persistent wallet (server-backed) */
-	UFUNCTION(BlueprintCallable, Category = "Coins")
-	void AddCoins(int32 Amount);
+	/** Add currency */
+	UFUNCTION(BlueprintCallable, Category = "Currency")
+	void AddCurrency(int32 Amount);
 
-	/** Spend coins from persistent wallet */
-	UFUNCTION(BlueprintCallable, Category = "Coins")
-	bool SpendCoins(int32 Amount);
+	/** Spend currency */
+	UFUNCTION(BlueprintCallable, Category = "Currency")
+	bool SpendCurrency(int32 Amount);
 
-	/** Save coins to web server */
-	UFUNCTION(BlueprintCallable, Category = "Coins")
+	/** Save currency to web server */
+	UFUNCTION(BlueprintCallable, Category = "Currency")
 	void SaveCoins();
 
-	/** Load coins from web server */
-	UFUNCTION(BlueprintCallable, Category = "Coins")
-	void LoadCoins();
+	/** Load currency from web server */
+	UFUNCTION(BlueprintCallable, Category = "Currency")
+	void LoadCurrency();
 
-	/** Purchase an item with coins */
-	UFUNCTION(BlueprintCallable, Category = "Coins")
+	/** Purchase an item */
+	UFUNCTION(BlueprintCallable, Category = "Currency")
 	bool PurchaseItem(const FString& ItemId, int32 Price);
-
-	// Legacy functions for backwards compatibility (deprecated - use Coins versions)
-	UFUNCTION(BlueprintPure, Category = "Coins", meta = (DeprecatedFunction, DeprecationMessage = "Use GetCoins() instead"))
-	int32 GetCurrency() const { return Coins; }
-
-	UFUNCTION(BlueprintCallable, Category = "Coins", meta = (DeprecatedFunction, DeprecationMessage = "Use AddCoins() instead"))
-	void AddCurrency(int32 Amount) { AddCoins(Amount); }
-
-	UFUNCTION(BlueprintCallable, Category = "Coins", meta = (DeprecatedFunction, DeprecationMessage = "Use SpendCoins() instead"))
-	bool SpendCurrency(int32 Amount) { return SpendCoins(Amount); }
 
 protected:
 	/** Web server interface */
 	UPROPERTY()
 	UWebServerInterface* WebServerInterface;
 
-	/** Current coins amount (persistent wallet, server-backed) */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Coins")
-	int32 Coins = 0;
+	/** Current currency amount */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Currency")
+	int32 Currency = 0;
 
-	/** Save coins locally (temporary cache until server sync) */
-	void SaveCoinsLocal();
+	/** Save currency locally */
+	void SaveCurrencyLocal();
 
-	/** Load coins locally (temporary cache, server is source of truth) */
-	void LoadCoinsLocal();
-
-	/** Callback when currency is loaded from server */
-	UFUNCTION()
-	void OnCurrencyLoadedFromServer(int32 ServerCoins);
+	/** Load currency locally */
+	void LoadCurrencyLocal();
 };
 

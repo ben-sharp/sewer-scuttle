@@ -2,168 +2,286 @@
 
 #include "ContentExporter.h"
 #include "ContentRegistry.h"
+#include "TrackPieceDefinition.h"
+#include "ObstacleDefinition.h"
+#include "PowerUpDefinition.h"
+#include "CollectibleDefinition.h"
+#include "PlayerClass.h"
+#include "ObstacleSpawnComponent.h"
+#include "PowerUpSpawnComponent.h"
+#include "CollectibleSpawnComponent.h"
+#include "Obstacle.h"
+#include "PowerUp.h"
+#include "CollectibleCoin.h"
+#include "TrackPiece.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonWriter.h"
+#include "Serialization/JsonSerializer.h"
 #include "Misc/FileHelper.h"
-#include "Misc/Paths.h"
-#include "HAL/PlatformFilemanager.h"
-#include "HttpModule.h"
-#include "Interfaces/IHttpRequest.h"
-#include "Interfaces/IHttpResponse.h"
 
-UContentExporter::UContentExporter()
+FString UContentExporter::ExportToJson(UContentRegistry* Registry, const FString& Version)
 {
-	ContentRegistry = nullptr;
+	if (!Registry) return TEXT("");
+
+	TSharedPtr<FJsonObject> RootObject = MakeShareable(new FJsonObject);
+	RootObject->SetStringField(TEXT("version"), Version);
+
+	TArray<TSharedPtr<FJsonValue>> DefinitionsArray;
+
+	// Export Track Pieces
+	for (UTrackPieceDefinition* Def : Registry->GetTrackPieces())
+	{
+		TSharedPtr<FJsonObject> DefObj = MakeShareable(new FJsonObject);
+		DefObj->SetStringField(TEXT("content_id"), Def->GetName());
+		DefObj->SetStringField(TEXT("name"), Def->PieceName);
+		DefObj->SetStringField(TEXT("type"), TEXT("track_piece"));
+
+		TSharedPtr<FJsonObject> PropsObj = MakeShareable(new FJsonObject);
+		PropsObj->SetNumberField(TEXT("length"), Def->Length);
+		PropsObj->SetNumberField(TEXT("lane_width"), Def->LaneWidth);
+		PropsObj->SetStringField(TEXT("piece_type"), TrackPieceUtils::ToString(Def->PieceType));
+		PropsObj->SetBoolField(TEXT("is_first_piece"), Def->bIsFirstPiece);
+
+		// Export Spawn Configs
+		TArray<TSharedPtr<FJsonValue>> SpawnConfigsArray;
+		
+		// Export from Blueprint components (if using BP actor)
+		if (Def->bUseBlueprintActor && Def->BlueprintActorClass)
+		{
+			if (ATrackPiece* CDO = Cast<ATrackPiece>(Def->BlueprintActorClass->GetDefaultObject()))
+			{
+				TArray<UActorComponent*> Components;
+				CDO->GetComponents(USceneComponent::StaticClass(), Components);
+
+				for (UActorComponent* Comp : Components)
+				{
+					TSharedPtr<FJsonObject> SpawnConfigObj = nullptr;
+
+					if (UObstacleSpawnComponent* ObsComp = Cast<UObstacleSpawnComponent>(Comp))
+					{
+						SpawnConfigObj = MakeShareable(new FJsonObject);
+						SpawnConfigObj->SetStringField(TEXT("spawn_type"), TEXT("Obstacle"));
+						
+						TArray<TSharedPtr<FJsonValue>> WeightedArray;
+						for (const FWeightedDefinition& WD : ObsComp->ObstacleDefinitions)
+						{
+							if (!WD.Definition) continue;
+							TSharedPtr<FJsonObject> WObj = MakeShareable(new FJsonObject);
+							WObj->SetStringField(TEXT("id"), WD.Definition->GetName());
+							WObj->SetNumberField(TEXT("weight"), WD.Weight);
+							WeightedArray.Add(MakeShareable(new FJsonValueObject(WObj)));
+						}
+						SpawnConfigObj->SetArrayField(TEXT("weighted_definitions"), WeightedArray);
+						
+						// Export first valid class as fallback for legacy backend fields
+						FString FallbackClass = TEXT("");
+						TArray<FString> AllowedClasses;
+						
+						for (const FWeightedDefinition& WD : ObsComp->ObstacleDefinitions)
+						{
+							if (UObstacleDefinition* OD = Cast<UObstacleDefinition>(WD.Definition))
+							{
+								if (OD->ObstacleClass) { FallbackClass = OD->ObstacleClass->GetName(); }
+								for (EPlayerClass PC : OD->AllowedClasses) AllowedClasses.AddUnique(FPlayerClassData::PlayerClassToString(PC));
+							}
+						}
+						SpawnConfigObj->SetStringField(TEXT("spawn_class"), FallbackClass);
+						
+						TArray<TSharedPtr<FJsonValue>> AllowedClassesJson;
+						for (const FString& AC : AllowedClasses) AllowedClassesJson.Add(MakeShareable(new FJsonValueString(AC)));
+						SpawnConfigObj->SetArrayField(TEXT("allowed_classes"), AllowedClassesJson);
+						
+						SpawnConfigObj->SetNumberField(TEXT("probability"), ObsComp->SpawnProbability);
+					}
+					else if (UPowerUpSpawnComponent* PUComp = Cast<UPowerUpSpawnComponent>(Comp))
+					{
+						SpawnConfigObj = MakeShareable(new FJsonObject);
+						SpawnConfigObj->SetStringField(TEXT("spawn_type"), TEXT("PowerUp"));
+						
+						TArray<TSharedPtr<FJsonValue>> WeightedArray;
+						for (const FWeightedDefinition& WD : PUComp->PowerUpDefinitions)
+						{
+							if (!WD.Definition) continue;
+							TSharedPtr<FJsonObject> WObj = MakeShareable(new FJsonObject);
+							WObj->SetStringField(TEXT("id"), WD.Definition->GetName());
+							WObj->SetNumberField(TEXT("weight"), WD.Weight);
+							WeightedArray.Add(MakeShareable(new FJsonValueObject(WObj)));
+						}
+						SpawnConfigObj->SetArrayField(TEXT("weighted_definitions"), WeightedArray);
+
+						FString FallbackClass = TEXT("");
+						TArray<FString> AllowedClasses;
+						
+						for (const FWeightedDefinition& WD : PUComp->PowerUpDefinitions)
+						{
+							if (UPowerUpDefinition* PD = Cast<UPowerUpDefinition>(WD.Definition))
+							{
+								if (PD->PowerUpClass) { FallbackClass = PD->PowerUpClass->GetName(); }
+								for (EPlayerClass PC : PD->AllowedClasses) AllowedClasses.AddUnique(FPlayerClassData::PlayerClassToString(PC));
+							}
+						}
+						SpawnConfigObj->SetStringField(TEXT("spawn_class"), FallbackClass);
+						
+						TArray<TSharedPtr<FJsonValue>> AllowedClassesJson;
+						for (const FString& AC : AllowedClasses) AllowedClassesJson.Add(MakeShareable(new FJsonValueString(AC)));
+						SpawnConfigObj->SetArrayField(TEXT("allowed_classes"), AllowedClassesJson);
+						
+						SpawnConfigObj->SetNumberField(TEXT("probability"), PUComp->SpawnProbability);
+					}
+					else if (UCollectibleSpawnComponent* ColComp = Cast<UCollectibleSpawnComponent>(Comp))
+					{
+						SpawnConfigObj = MakeShareable(new FJsonObject);
+						SpawnConfigObj->SetStringField(TEXT("spawn_type"), TEXT("Coin"));
+						
+						TArray<TSharedPtr<FJsonValue>> WeightedArray;
+						for (const FWeightedDefinition& WD : ColComp->CollectibleDefinitions)
+						{
+							if (!WD.Definition) continue;
+							TSharedPtr<FJsonObject> WObj = MakeShareable(new FJsonObject);
+							WObj->SetStringField(TEXT("id"), WD.Definition->GetName());
+							WObj->SetNumberField(TEXT("weight"), WD.Weight);
+							WeightedArray.Add(MakeShareable(new FJsonValueObject(WObj)));
+						}
+						SpawnConfigObj->SetArrayField(TEXT("weighted_definitions"), WeightedArray);
+
+						FString FallbackClass = TEXT("");
+						TArray<FString> AllowedClasses;
+						
+						for (const FWeightedDefinition& WD : ColComp->CollectibleDefinitions)
+						{
+							if (UCollectibleDefinition* CD = Cast<UCollectibleDefinition>(WD.Definition))
+							{
+								if (CD->CollectibleClass) { FallbackClass = CD->CollectibleClass->GetName(); }
+								for (EPlayerClass PC : CD->AllowedClasses) AllowedClasses.AddUnique(FPlayerClassData::PlayerClassToString(PC));
+							}
+						}
+						SpawnConfigObj->SetStringField(TEXT("spawn_class"), FallbackClass);
+						
+						TArray<TSharedPtr<FJsonValue>> AllowedClassesJson;
+						for (const FString& AC : AllowedClasses) AllowedClassesJson.Add(MakeShareable(new FJsonValueString(AC)));
+						SpawnConfigObj->SetArrayField(TEXT("allowed_classes"), AllowedClassesJson);
+						
+						SpawnConfigObj->SetNumberField(TEXT("probability"), ColComp->CollectibleDefinitions.Num() > 0 ? ColComp->SpawnProbability : 0.0f);
+					}
+
+					if (SpawnConfigObj.IsValid())
+					{
+						USceneComponent* SceneComp = Cast<USceneComponent>(Comp);
+						SpawnConfigObj->SetStringField(TEXT("component_name"), Comp->GetName());
+						
+						// Try to determine lane based on Y position (-200, 0, 200)
+						float Y = SceneComp->GetRelativeLocation().Y;
+						int32 Lane = 1; // Center
+						if (Y < -100.0f) Lane = 0;
+						else if (Y > 100.0f) Lane = 2;
+						
+						SpawnConfigObj->SetNumberField(TEXT("lane"), Lane);
+						SpawnConfigObj->SetNumberField(TEXT("forward_position"), SceneComp->GetRelativeLocation().X);
+						SpawnConfigsArray.Add(MakeShareable(new FJsonValueObject(SpawnConfigObj)));
+					}
+				}
+			}
+		}
+		
+		PropsObj->SetArrayField(TEXT("spawn_configs"), SpawnConfigsArray);
+		
+		DefObj->SetObjectField(TEXT("properties"), PropsObj);
+		DefinitionsArray.Add(MakeShareable(new FJsonValueObject(DefObj)));
+	}
+
+	// Export Obstacles
+	for (UObstacleDefinition* Def : Registry->GetObstacles())
+	{
+		TSharedPtr<FJsonObject> DefObj = MakeShareable(new FJsonObject);
+		DefObj->SetStringField(TEXT("content_id"), Def->GetName());
+		DefObj->SetStringField(TEXT("name"), Def->ObstacleName);
+		DefObj->SetStringField(TEXT("type"), TEXT("obstacle"));
+
+		TSharedPtr<FJsonObject> PropsObj = MakeShareable(new FJsonObject);
+		PropsObj->SetStringField(TEXT("obstacle_type"), ObstacleUtils::ToString(Def->ObstacleType));
+		PropsObj->SetNumberField(TEXT("damage"), Def->Damage);
+		PropsObj->SetNumberField(TEXT("lives_lost"), Def->LivesLost);
+		
+		TArray<TSharedPtr<FJsonValue>> ClassesArray;
+		for (EPlayerClass PlayerClass : Def->AllowedClasses)
+		{
+			ClassesArray.Add(MakeShareable(new FJsonValueString(FPlayerClassData::PlayerClassToString(PlayerClass))));
+		}
+		PropsObj->SetArrayField(TEXT("allowed_classes"), ClassesArray);
+
+		DefObj->SetObjectField(TEXT("properties"), PropsObj);
+		DefinitionsArray.Add(MakeShareable(new FJsonValueObject(DefObj)));
+	}
+
+	// Export Power-ups
+	for (UPowerUpDefinition* Def : Registry->GetPowerUps())
+	{
+		TSharedPtr<FJsonObject> DefObj = MakeShareable(new FJsonObject);
+		DefObj->SetStringField(TEXT("content_id"), Def->GetName());
+		DefObj->SetStringField(TEXT("name"), Def->PowerUpName);
+		DefObj->SetStringField(TEXT("type"), TEXT("powerup"));
+
+		TSharedPtr<FJsonObject> PropsObj = MakeShareable(new FJsonObject);
+		PropsObj->SetNumberField(TEXT("duration"), Def->Duration);
+		PropsObj->SetStringField(TEXT("stat_type"), Def->StatTypeToModify.ToString());
+		PropsObj->SetNumberField(TEXT("modification_value"), Def->ModificationValue);
+		PropsObj->SetNumberField(TEXT("base_cost"), (double)Def->BaseCost);
+		PropsObj->SetNumberField(TEXT("cost_multiplier_per_tier"), (double)Def->CostMultiplierPerTier);
+		
+		TArray<TSharedPtr<FJsonValue>> TiersArray;
+		for (ETrackTier Tier : Def->DifficultyAvailability)
+		{
+			TiersArray.Add(MakeShareable(new FJsonValueString(TrackTierUtils::ToString(Tier))));
+		}
+		PropsObj->SetArrayField(TEXT("difficulty_availability"), TiersArray);
+
+		TArray<TSharedPtr<FJsonValue>> ClassesArray;
+		for (EPlayerClass PlayerClass : Def->AllowedClasses)
+		{
+			ClassesArray.Add(MakeShareable(new FJsonValueString(FPlayerClassData::PlayerClassToString(PlayerClass))));
+		}
+		PropsObj->SetArrayField(TEXT("allowed_classes"), ClassesArray);
+		
+		DefObj->SetObjectField(TEXT("properties"), PropsObj);
+		DefinitionsArray.Add(MakeShareable(new FJsonValueObject(DefObj)));
+	}
+
+	// Export Collectibles
+	for (UCollectibleDefinition* Def : Registry->GetCollectibles())
+	{
+		TSharedPtr<FJsonObject> DefObj = MakeShareable(new FJsonObject);
+		DefObj->SetStringField(TEXT("content_id"), Def->GetName());
+		DefObj->SetStringField(TEXT("name"), Def->CollectibleName);
+		DefObj->SetStringField(TEXT("type"), TEXT("collectible"));
+
+		TSharedPtr<FJsonObject> PropsObj = MakeShareable(new FJsonObject);
+		PropsObj->SetNumberField(TEXT("value"), Def->Value);
+		
+		TArray<TSharedPtr<FJsonValue>> ClassesArray;
+		for (EPlayerClass PlayerClass : Def->AllowedClasses)
+		{
+			ClassesArray.Add(MakeShareable(new FJsonValueString(FPlayerClassData::PlayerClassToString(PlayerClass))));
+		}
+		PropsObj->SetArrayField(TEXT("allowed_classes"), ClassesArray);
+
+		DefObj->SetObjectField(TEXT("properties"), PropsObj);
+		DefinitionsArray.Add(MakeShareable(new FJsonValueObject(DefObj)));
+	}
+
+	RootObject->SetArrayField(TEXT("definitions"), DefinitionsArray);
+
+	FString OutputString;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutputString);
+	FJsonSerializer::Serialize(RootObject.ToSharedRef(), Writer);
+
+	return OutputString;
 }
 
-FString UContentExporter::ExportToJSON() const
+bool UContentExporter::ExportToFile(UContentRegistry* Registry, const FString& Version, const FString& FilePath)
 {
-	if (!ContentRegistry)
-	{
-		return TEXT("");
-	}
+	FString JsonString = ExportToJson(Registry, Version);
+	if (JsonString.IsEmpty()) return false;
 
-	FString Json;
-	Json += TEXT("{\n");
-	Json += FString::Printf(TEXT("  \"version\": \"%s\",\n"), *ContentRegistry->GetContentVersion());
-	Json += FString::Printf(TEXT("  \"exported_at\": \"%s\",\n"), *FDateTime::Now().ToIso8601());
-	Json += TEXT("  \"definitions\": [\n");
-
-	TArray<FContentDefinition> AllContent = ContentRegistry->GetAllContent();
-	for (int32 i = 0; i < AllContent.Num(); i++)
-	{
-		const FContentDefinition& Def = AllContent[i];
-		if (i > 0) Json += TEXT(",\n");
-
-		Json += TEXT("    {\n");
-		Json += FString::Printf(TEXT("      \"type\": \"%s\",\n"), *Def.Type);
-		Json += FString::Printf(TEXT("      \"id\": \"%s\",\n"), *Def.Id);
-		Json += FString::Printf(TEXT("      \"name\": \"%s\",\n"), *Def.Name);
-		Json += TEXT("      \"properties\": {\n");
-
-		int32 PropIndex = 0;
-		for (const auto& Pair : Def.Properties)
-		{
-			if (PropIndex > 0) Json += TEXT(",\n");
-			Json += FString::Printf(TEXT("        \"%s\": "), *Pair.Key);
-			
-			// Try to parse as number, otherwise treat as string
-			if (Pair.Value.IsNumeric())
-			{
-				Json += Pair.Value;
-			}
-			else if (Pair.Value == TEXT("true") || Pair.Value == TEXT("false"))
-			{
-				Json += Pair.Value;
-			}
-			else if (Pair.Value.StartsWith(TEXT("[")) || Pair.Value.StartsWith(TEXT("{")))
-			{
-				// Already JSON-like
-				Json += Pair.Value;
-			}
-			else
-			{
-				Json += FString::Printf(TEXT("\"%s\""), *Pair.Value);
-			}
-			PropIndex++;
-		}
-
-		Json += TEXT("\n      }\n");
-		Json += TEXT("    }");
-	}
-
-	Json += TEXT("\n  ]\n");
-	Json += TEXT("}\n");
-
-	return Json;
-}
-
-bool UContentExporter::ExportToFile(const FString& FilePath) const
-{
-	FString JsonContent = ExportToJSON();
-	if (JsonContent.IsEmpty())
-	{
-		return false;
-	}
-
-	// Ensure directory exists
-	FString Directory = FPaths::GetPath(FilePath);
-	if (!Directory.IsEmpty())
-	{
-		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-		PlatformFile.CreateDirectoryTree(*Directory);
-	}
-
-	return FFileHelper::SaveStringToFile(JsonContent, *FilePath);
-}
-
-bool UContentExporter::ExportToBackend() const
-{
-	// Get project directory (e.g., E:\PluginProjects\SewerScuttle\)
-	FString ProjectDir = FPaths::ProjectDir();
-	
-	// Backend is in the project directory, not sibling
-	// Navigate to Backend/storage/content directory
-	FString BackendPath = FPaths::Combine(*ProjectDir, TEXT("Backend"), TEXT("storage"), TEXT("content"));
-	
-	// Create directory if needed
-	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-	PlatformFile.CreateDirectoryTree(*BackendPath);
-	
-	// Export to latest.json
-	FString FilePath = FPaths::Combine(*BackendPath, TEXT("latest.json"));
-	
-	UE_LOG(LogTemp, Log, TEXT("ContentExporter: Exporting to %s"), *FilePath);
-	
-	return ExportToFile(FilePath);
-}
-
-void UContentExporter::ExportToAPI(const FString& ApiUrl) const
-{
-	FString JsonContent = ExportToJSON();
-	if (JsonContent.IsEmpty())
-	{
-		UE_LOG(LogTemp, Error, TEXT("ContentExporter: No content to export"));
-		return;
-	}
-
-	FHttpModule& HttpModule = FHttpModule::Get();
-	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = HttpModule.CreateRequest();
-
-	FString FullUrl = ApiUrl;
-	if (!FullUrl.EndsWith(TEXT("/api/content/import")))
-	{
-		if (!FullUrl.EndsWith(TEXT("/")))
-		{
-			FullUrl += TEXT("/");
-		}
-		FullUrl += TEXT("api/content/import");
-	}
-
-	Request->SetURL(FullUrl);
-	Request->SetVerb(TEXT("POST"));
-	Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
-	Request->SetContentAsString(JsonContent);
-
-	Request->OnProcessRequestComplete().BindLambda([this](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
-	{
-		if (bWasSuccessful && Response.IsValid())
-		{
-			int32 ResponseCode = Response->GetResponseCode();
-			if (ResponseCode >= 200 && ResponseCode < 300)
-			{
-				UE_LOG(LogTemp, Log, TEXT("ContentExporter: Successfully exported content to API"));
-			}
-			else
-			{
-				UE_LOG(LogTemp, Error, TEXT("ContentExporter: API returned error code %d"), ResponseCode);
-			}
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("ContentExporter: Failed to export content to API"));
-		}
-	});
-
-	Request->ProcessRequest();
-	UE_LOG(LogTemp, Log, TEXT("ContentExporter: Exporting content to %s"), *FullUrl);
+	return FFileHelper::SaveStringToFile(JsonString, *FilePath);
 }
 

@@ -8,7 +8,7 @@
 
 UCurrencyManager::UCurrencyManager()
 {
-	Coins = 0;
+	Currency = 0;
 	WebServerInterface = nullptr;
 }
 
@@ -16,26 +16,23 @@ void UCurrencyManager::Initialize()
 {
 	// Create web server interface
 	WebServerInterface = NewObject<UWebServerInterface>(this);
-	WebServerInterface->Initialize();
 
-	// Load coins from server
-	LoadCoins();
+	// Load currency from local storage
+	LoadCurrencyLocal();
 }
 
-void UCurrencyManager::AddCoins(int32 Amount)
+void UCurrencyManager::AddCurrency(int32 Amount)
 {
-	Coins += Amount;
-	// Save to server (async)
-	SaveCoins();
+	Currency += Amount;
+	SaveCurrencyLocal();
 }
 
-bool UCurrencyManager::SpendCoins(int32 Amount)
+bool UCurrencyManager::SpendCurrency(int32 Amount)
 {
-	if (Coins >= Amount)
+	if (Currency >= Amount)
 	{
-		Coins -= Amount;
-		// Save to server (async)
-		SaveCoins();
+		Currency -= Amount;
+		SaveCurrencyLocal();
 		return true;
 	}
 	return false;
@@ -43,41 +40,31 @@ bool UCurrencyManager::SpendCoins(int32 Amount)
 
 void UCurrencyManager::SaveCoins()
 {
-	// Save locally as temporary cache
-	SaveCoinsLocal();
+	// Save locally first
+	SaveCurrencyLocal();
 
-	// Note: Currency is managed server-side through player profile
-	// No direct save endpoint - currency updates happen through gameplay actions
-	// Server sync happens on LoadCoins()
-}
-
-void UCurrencyManager::LoadCoins()
-{
-	// Load from local cache first (for offline/quick access)
-	LoadCoinsLocal();
-
-	// Load from web server (async) - server is source of truth
+	// Save to web server (async)
 	if (WebServerInterface)
 	{
-		// Set callback to update coins when loaded
-		FOnCurrencyLoaded OnLoaded;
-		OnLoaded.BindUFunction(this, FName("OnCurrencyLoadedFromServer"));
-		WebServerInterface->SetOnCurrencyLoaded(OnLoaded);
+		WebServerInterface->SaveCurrency(Currency);
+	}
+}
+
+void UCurrencyManager::LoadCurrency()
+{
+	// Load from local storage first
+	LoadCurrencyLocal();
+
+	// Load from web server (async)
+	if (WebServerInterface)
+	{
 		WebServerInterface->LoadCurrency();
 	}
 }
 
-void UCurrencyManager::OnCurrencyLoadedFromServer(int32 ServerCoins)
-{
-	// Update coins from server (server is source of truth)
-	Coins = ServerCoins;
-	SaveCoinsLocal();
-	UE_LOG(LogTemp, Log, TEXT("CurrencyManager: Loaded %d coins from server"), Coins);
-}
-
 bool UCurrencyManager::PurchaseItem(const FString& ItemId, int32 Price)
 {
-	if (SpendCoins(Price))
+	if (SpendCurrency(Price))
 	{
 		// Notify web server of purchase
 		if (WebServerInterface)
@@ -89,27 +76,25 @@ bool UCurrencyManager::PurchaseItem(const FString& ItemId, int32 Price)
 	return false;
 }
 
-void UCurrencyManager::SaveCoinsLocal()
+void UCurrencyManager::SaveCurrencyLocal()
 {
-	// Temporary local cache (server is source of truth)
-	FString SavePath = FPaths::ProjectSavedDir() / TEXT("Coins.dat");
-	FString CoinsString = FString::Printf(TEXT("%d"), Coins);
-	FFileHelper::SaveStringToFile(CoinsString, *SavePath);
+	FString SavePath = FPaths::ProjectSavedDir() / TEXT("Currency.dat");
+	FString CurrencyString = FString::Printf(TEXT("%d"), Currency);
+	FFileHelper::SaveStringToFile(CurrencyString, *SavePath);
 }
 
-void UCurrencyManager::LoadCoinsLocal()
+void UCurrencyManager::LoadCurrencyLocal()
 {
-	// Load from temporary local cache (server is source of truth)
-	FString SavePath = FPaths::ProjectSavedDir() / TEXT("Coins.dat");
-	FString CoinsString;
+	FString SavePath = FPaths::ProjectSavedDir() / TEXT("Currency.dat");
+	FString CurrencyString;
 	
-	if (FFileHelper::LoadFileToString(CoinsString, *SavePath))
+	if (FFileHelper::LoadFileToString(CurrencyString, *SavePath))
 	{
-		Coins = FCString::Atoi(*CoinsString);
+		Currency = FCString::Atoi(*CurrencyString);
 	}
 	else
 	{
-		Coins = 0;
+		Currency = 0;
 	}
 }
 

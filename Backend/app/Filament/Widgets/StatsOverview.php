@@ -23,7 +23,7 @@ class StatsOverview extends StatsOverviewWidget
                 ->description('Active players')
                 ->descriptionIcon('heroicon-o-user-group')
                 ->color('info'),
-            Stat::make('Total Runs', Run::count())
+            Stat::make('Total Runs', Run::where('is_completed', true)->count())
                 ->description('Completed runs')
                 ->descriptionIcon('heroicon-o-play')
                 ->color('warning'),

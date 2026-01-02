@@ -19,6 +19,27 @@ enum class EObstacleType : uint8
 	Full	UMETA(DisplayName = "Full - Must Avoid")
 };
 
+namespace ObstacleUtils
+{
+	static FString ToString(EObstacleType Type)
+	{
+		switch (Type)
+		{
+			case EObstacleType::Low: return TEXT("Low");
+			case EObstacleType::High: return TEXT("High");
+			case EObstacleType::Full:
+			default: return TEXT("Full");
+		}
+	}
+
+	static EObstacleType FromString(const FString& TypeStr)
+	{
+		if (TypeStr.Equals(TEXT("Low"), ESearchCase::IgnoreCase)) return EObstacleType::Low;
+		if (TypeStr.Equals(TEXT("High"), ESearchCase::IgnoreCase)) return EObstacleType::High;
+		return EObstacleType::Full;
+	}
+}
+
 /**
  * Base obstacle actor
  * Blocks player path and causes damage/knockback on collision

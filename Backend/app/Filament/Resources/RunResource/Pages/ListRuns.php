@@ -13,7 +13,7 @@ class ListRuns extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            // No create action - runs are created by game clients
+            Actions\CreateAction::make(),
         ];
     }
 }

@@ -20,6 +20,8 @@ public:
 
 	void Construct(const FArguments& InArgs, AEndlessRunnerGameMode* InGameMode);
 
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+
 	/** Update HUD display */
 	void UpdateHUD(int32 Score, float Distance, int32 Coins, float Speed, float Time, int32 Lives, int32 CurrentJumpCount, int32 MaxJumpCount, const FString& PowerUpStatus, int32 Seed = 0);
 

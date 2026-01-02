@@ -4,9 +4,10 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\RunResource\Pages;
 use App\Models\Run;
-use Filament\Actions\ViewAction;
-use Filament\Resources\Resource;
+use Filament\Actions;
+use Filament\Forms;
 use Filament\Schemas\Schema;
+use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 
@@ -14,124 +15,58 @@ class RunResource extends Resource
 {
     protected static ?string $model = Run::class;
 
-    protected static ?string $navigationLabel = 'Runs';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-flag';
 
-    protected static ?int $navigationSort = 2;
-
-    public static function getNavigationIcon(): string
+    public static function form(Schema $form): Schema
     {
-        return 'heroicon-o-play';
-    }
-
-    public static function form(Schema $schema): Schema
-    {
-        return $schema;
+        return $form
+            ->components([
+                Forms\Components\TextInput::make('seed_id')->required(),
+                Forms\Components\Select::make('player_id')->relationship('player', 'username'),
+                Forms\Components\TextInput::make('device_id'),
+                Forms\Components\TextInput::make('score')->numeric()->required(),
+                Forms\Components\TextInput::make('distance')->numeric()->required(),
+                Forms\Components\Toggle::make('is_complete'),
+                Forms\Components\Toggle::make('is_endless'),
+                Forms\Components\Toggle::make('is_suspicious'),
+            ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('id')
-                    ->label('ID')
-                    ->sortable()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('player.username')
-                    ->label('Player')
-                    ->default('Anonymous')
-                    ->sortable()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('device_id')
-                    ->label('Device ID')
-                    ->default('N/A')
-                    ->searchable()
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('score')
-                    ->label('Score')
-                    ->numeric()
-                    ->sortable()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('distance')
-                    ->label('Distance (m)')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('duration_seconds')
-                    ->label('Duration')
-                    ->formatStateUsing(fn ($state) => gmdate('H:i:s', $state))
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('coins_collected')
-                    ->label('Coins')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('obstacles_hit')
-                    ->label('Obstacles Hit')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('powerups_used')
-                    ->label('PowerUps')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('track_pieces_spawned')
-                    ->label('Track Pieces')
-                    ->numeric()
-                    ->sortable()
-                    ->toggleable(),
-                Tables\Columns\IconColumn::make('is_suspicious')
-                    ->label('Suspicious')
-                    ->boolean()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('seed_id')
-                    ->label('Seed ID')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('started_at')
-                    ->dateTime()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('completed_at')
-                    ->dateTime()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable(),
+                Tables\Columns\TextColumn::make('player.username')->label('Player'),
+                Tables\Columns\TextColumn::make('score')->numeric()->sortable(),
+                Tables\Columns\TextColumn::make('distance')->numeric()->sortable(),
+                Tables\Columns\IconColumn::make('is_complete')->boolean(),
+                Tables\Columns\IconColumn::make('is_endless')->boolean(),
+                Tables\Columns\IconColumn::make('is_suspicious')->boolean(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('is_suspicious')
-                    ->label('Suspicious')
-                    ->options([
-                        0 => 'Valid',
-                        1 => 'Suspicious',
-                    ]),
-                Tables\Filters\Filter::make('anonymous')
-                    ->label('Anonymous Runs')
-                    ->query(fn ($query) => $query->anonymous()),
-                Tables\Filters\Filter::make('authenticated')
-                    ->label('Authenticated Runs')
-                    ->query(fn ($query) => $query->authenticated()),
+                Tables\Filters\Filter::make('complete')->query(fn ($query) => $query->where('is_complete', true)),
+                Tables\Filters\Filter::make('endless')->query(fn ($query) => $query->where('is_endless', true)),
+                Tables\Filters\Filter::make('suspicious')->query(fn ($query) => $query->where('is_suspicious', true)),
             ])
             ->actions([
-                ViewAction::make(),
+                Actions\ViewAction::make(),
+                Actions\EditAction::make(),
             ])
             ->bulkActions([
-                // No bulk actions for now
-            ])
-            ->defaultSort('completed_at', 'desc');
-    }
-
-    public static function infolist(Schema $schema): Schema
-    {
-        return $schema;
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
+                Actions\BulkActionGroup::make([
+                    Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
     }
 
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListRuns::route('/'),
+            'create' => Pages\CreateRun::route('/create'),
             'view' => Pages\ViewRun::route('/{record}'),
+            'edit' => Pages\EditRun::route('/{record}/edit'),
         ];
     }
 }
-

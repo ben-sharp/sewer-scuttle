@@ -18,12 +18,5 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AdminUserSeeder::class,
         ]);
-
-        // Only seed players in non-production environments
-        if (!app()->environment('production')) {
-            $this->call([
-                PlayerSeeder::class,
-            ]);
-        }
     }
 }

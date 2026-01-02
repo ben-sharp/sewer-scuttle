@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Player;
 use App\Models\User;
-use App\Services\AnonymousDataMergeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,11 +14,6 @@ use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
 {
-    public function __construct(
-        protected AnonymousDataMergeService $mergeService
-    ) {
-    }
-
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -28,7 +22,6 @@ class AuthController extends Controller
             'password' => 'required|string|min:8',
             'username' => 'required|string|max:255|unique:players',
             'display_name' => 'required|string|max:255',
-            'device_id' => 'sometimes|string', // Optional device_id for merging anonymous data
         ]);
 
         $user = User::create([
@@ -46,23 +39,11 @@ class AuthController extends Controller
         // Initialize default currency
         $player->addCurrency('coins', 0);
 
-        // Merge anonymous data if device_id provided
-        $mergeSummary = null;
-        if (isset($validated['device_id']) && !empty($validated['device_id'])) {
-            try {
-                $mergeSummary = $this->mergeService->mergeDeviceDataToUser($validated['device_id'], $user);
-            } catch (\Exception $e) {
-                // Log error but don't fail registration
-                \Log::warning("Failed to merge anonymous data during registration: " . $e->getMessage());
-            }
-        }
-
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([
             'user' => $user->load('player'),
             'token' => $token,
-            'merge_summary' => $mergeSummary,
         ], 201);
     }
 
@@ -123,8 +104,6 @@ class AuthController extends Controller
             'display_name' => 'required|string|max:255',
         ]);
 
-        $isNewUser = !User::where('device_id', $validated['device_id'])->exists();
-
         $user = User::firstOrCreate(
             ['device_id' => $validated['device_id']],
             [
@@ -144,22 +123,11 @@ class AuthController extends Controller
             $player->addCurrency('coins', 0);
         }
 
-        // Merge anonymous data if this is a new user (first device auth)
-        $mergeSummary = null;
-        if ($isNewUser) {
-            try {
-                $mergeSummary = $this->mergeService->mergeDeviceDataToUser($validated['device_id'], $user);
-            } catch (\Exception $e) {
-                \Log::warning("Failed to merge anonymous data during device auth: " . $e->getMessage());
-            }
-        }
-
         $token = $user->createToken('device-token')->plainTextToken;
 
         return response()->json([
             'user' => $user->load('player'),
             'token' => $token,
-            'merge_summary' => $mergeSummary,
         ], 201);
     }
 
@@ -208,33 +176,6 @@ class AuthController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Social authentication failed'], 401);
-        }
-    }
-
-    /**
-     * Merge anonymous device data to authenticated user
-     * POST /api/auth/merge-device-data
-     */
-    public function mergeDeviceData(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'device_id' => 'required|string',
-        ]);
-
-        $user = $request->user();
-
-        try {
-            $mergeSummary = $this->mergeService->mergeDeviceDataToUser($validated['device_id'], $user);
-
-            return response()->json([
-                'message' => 'Device data merged successfully',
-                'merge_summary' => $mergeSummary,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to merge device data',
-                'error' => $e->getMessage(),
-            ], 500);
         }
     }
 }

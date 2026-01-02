@@ -13,7 +13,7 @@ class ListContentDefinitions extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            // No create action - content is imported from UE
+            Actions\CreateAction::make(),
         ];
     }
 }

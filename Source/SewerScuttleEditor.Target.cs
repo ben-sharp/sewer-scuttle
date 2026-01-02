@@ -11,5 +11,6 @@ public class SewerScuttleEditorTarget : TargetRules
 		DefaultBuildSettings = BuildSettingsVersion.V6;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_7;
 		ExtraModuleNames.Add("SewerScuttle");
+		ExtraModuleNames.Add("SewerScuttleEditor");
 	}
 }

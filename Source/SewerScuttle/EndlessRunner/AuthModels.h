@@ -3,13 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UObject/NoExportTypes.h"
 #include "AuthModels.generated.h"
 
-/**
- * Authentication request data
- */
 USTRUCT(BlueprintType)
-struct SEWERSCUTTLE_API FAuthRequest
+struct FUserCredentials
 {
 	GENERATED_BODY()
 
@@ -20,74 +18,8 @@ struct SEWERSCUTTLE_API FAuthRequest
 	FString Password;
 };
 
-/**
- * Registration request data
- */
 USTRUCT(BlueprintType)
-struct SEWERSCUTTLE_API FRegisterRequest
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Name;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Email;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Password;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Username;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString DisplayName;
-};
-
-/**
- * Device authentication request data
- */
-USTRUCT(BlueprintType)
-struct SEWERSCUTTLE_API FDeviceAuthRequest
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadWrite)
-	FString DeviceId;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Username;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString DisplayName;
-};
-
-/**
- * Player data structure
- */
-USTRUCT(BlueprintType)
-struct SEWERSCUTTLE_API FPlayerData
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadWrite)
-	int32 Id = 0;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Username;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString DisplayName;
-
-	UPROPERTY(BlueprintReadWrite)
-	TMap<FString, int32> Currency;
-};
-
-/**
- * User data structure (renamed to avoid conflict with Unreal's FUserData in PhysicsCore)
- */
-USTRUCT(BlueprintType)
-struct SEWERSCUTTLE_API FAuthUserData
+struct FAuthUserData
 {
 	GENERATED_BODY()
 
@@ -99,23 +31,17 @@ struct SEWERSCUTTLE_API FAuthUserData
 
 	UPROPERTY(BlueprintReadWrite)
 	FString Email;
-
-	UPROPERTY(BlueprintReadWrite)
-	FPlayerData Player;
 };
 
-/**
- * Authentication response data
- */
 USTRUCT(BlueprintType)
-struct SEWERSCUTTLE_API FAuthResponse
+struct FAuthResponse
 {
 	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadWrite)
-	FAuthUserData User;
 
 	UPROPERTY(BlueprintReadWrite)
 	FString Token;
+
+	UPROPERTY(BlueprintReadWrite)
+	FAuthUserData User;
 };
 

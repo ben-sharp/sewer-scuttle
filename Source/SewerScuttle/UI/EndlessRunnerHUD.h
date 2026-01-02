@@ -4,28 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+#include "EndlessRunner/PlayerClass.h"
 #include "EndlessRunnerHUD.generated.h"
 
-class SEndlessRunnerHUD;
-class SMainMenuWidget;
-class SShopWidget;
-class SLeaderboardWidget;
-class SGameOverWidget;
-class SClassSelectionWidget;
-class SPauseWidget;
-class AEndlessRunnerGameMode;
-
-UENUM(BlueprintType)
-enum class EUIState : uint8
-{
-	MainMenu	UMETA(DisplayName = "Main Menu"),
-	InGame		UMETA(DisplayName = "In Game"),
-	Shop		UMETA(DisplayName = "Shop"),
-	Leaderboard UMETA(DisplayName = "Leaderboard")
-};
+struct FTrackSelectionData;
+struct FBossRewardData;
 
 /**
- * HUD actor that manages Slate widgets
+ * Main HUD class for the endless runner game
+ * Manages Slate widgets for various game states
  */
 UCLASS()
 class SEWERSCUTTLE_API AEndlessRunnerHUD : public AHUD
@@ -36,88 +23,97 @@ public:
 	AEndlessRunnerHUD();
 
 	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaTime) override;
 
-	/** Show main menu */
+	/** Show the main menu */
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void ShowMainMenu();
 
-	/** Show in-game HUD */
-	UFUNCTION(BlueprintCallable, Category = "UI")
-	void ShowInGameHUD();
-
-	/** Show shop */
-	UFUNCTION(BlueprintCallable, Category = "UI")
-	void ShowShop();
-
-	/** Show leaderboard */
-	UFUNCTION(BlueprintCallable, Category = "UI")
-	void ShowLeaderboard();
-
-	/** Show game over screen */
-	UFUNCTION(BlueprintCallable, Category = "UI")
-	void ShowGameOverScreen();
-
-	/** Show class selection screen */
+	/** Show the class selection UI */
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void ShowClassSelection();
 
-	/** Show pause screen */
+	/** Show the in-game HUD (score, distance, lives) */
 	UFUNCTION(BlueprintCallable, Category = "UI")
-	void ShowPauseScreen();
+	void ShowInGameHUD();
 
-	/** Hide pause screen and resume game */
+	/** Show the track selection UI */
 	UFUNCTION(BlueprintCallable, Category = "UI")
-	void HidePauseScreen();
+	void ShowTrackSelection();
 
-	/** Toggle pause (call from input) */
+	/** Show the shop UI */
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ShowShop();
+
+	/** Show the boss reward UI */
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ShowBossRewards();
+
+	/** Show the endless mode prompt */
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ShowEndlessModePrompt();
+
+	/** Show the game over screen */
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ShowGameOverScreen();
+
+	/** Hide all widgets */
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void HideAllWidgets();
+
+	/** Toggle pause menu */
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void TogglePause();
 
-	/** Get current UI state */
-	UFUNCTION(BlueprintPure, Category = "UI")
-	EUIState GetUIState() const { return CurrentUIState; }
+	/** Handle shop items received */
+	void OnShopItemsReceived(const struct FShopData& ShopData);
 
 protected:
-	/** Current UI state */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
-	EUIState CurrentUIState = EUIState::MainMenu;
-
-	/** Flag to show main menu on first tick (when viewport is ready) */
-	bool bNeedsToShowMainMenu = false;
-
-	/** In-game HUD widget */
-	TSharedPtr<SEndlessRunnerHUD> InGameHUDWidget;
-
 	/** Main menu widget */
-	TSharedPtr<SMainMenuWidget> MainMenuWidget;
-
-	/** Shop widget */
-	TSharedPtr<SShopWidget> ShopWidget;
-
-	/** Leaderboard widget */
-	TSharedPtr<SLeaderboardWidget> LeaderboardWidget;
-
-	/** Game over widget */
-	TSharedPtr<SGameOverWidget> GameOverWidget;
+	TSharedPtr<class SMainMenuWidget> MainMenuWidget;
 
 	/** Class selection widget */
-	TSharedPtr<SClassSelectionWidget> ClassSelectionWidget;
+	TSharedPtr<class SClassSelectionWidget> ClassSelectionWidget;
 
-	/** Pause widget */
-	TSharedPtr<SPauseWidget> PauseWidget;
+	/** In-game HUD widget */
+	TSharedPtr<class SEndlessRunnerHUD> InGameHUDWidget;
 
-	/** Create and show widget */
-	void CreateAndShowWidget(TSharedPtr<class SWidget> Widget);
+	/** Track selection widget */
+	TSharedPtr<class STrackSelectionWidget> TrackSelectionWidget;
 
-	/** Remove all widgets */
-	void RemoveAllWidgets();
+	/** Shop widget */
+	TSharedPtr<class SShopWidget> ShopWidget;
 
-private:
-	/** HUD update timer (throttle updates for performance) */
-	float HUDUpdateTimer = 0.0f;
-	
-	/** HUD update interval (update every 0.1 seconds instead of every frame) */
-	static constexpr float HUDUpdateInterval = 0.1f;
+	/** Boss reward widget */
+	TSharedPtr<class SBossRewardWidget> BossRewardWidget;
+
+	/** Endless mode prompt widget */
+	TSharedPtr<class SEndlessModePromptWidget> EndlessModePromptWidget;
+
+	/** Game over widget */
+	TSharedPtr<class SGameOverWidget> GameOverWidget;
+
+	/** Pause menu widget */
+	TSharedPtr<class SPauseWidget> PauseWidget;
+
+	/** Handle track selection */
+	void OnTrackSelected(int32 TrackIndex);
+
+	/** Handle menu buttons */
+	void OnPlayClicked();
+	void OnClassSelected(EPlayerClass SelectedClass);
+	void OnShopClicked();
+	void OnLeaderboardClicked();
+	void OnSettingsClicked();
+
+	/** Handle shop exit */
+	void OnShopExited();
+
+	/** Handle reward selection */
+	void OnRewardSelected(FString RewardId);
+
+	/** Handle endless mode selection */
+	void OnEndlessModeSelected();
+
+	/** Handle endless mode declined */
+	void OnEndlessModeDeclined();
 };
-

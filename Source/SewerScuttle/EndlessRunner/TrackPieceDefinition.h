@@ -16,59 +16,61 @@ struct FTrackPieceMeshSet
 	GENERATED_BODY()
 
 	/** Floor mesh */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshes")
-	UStaticMesh* FloorMesh = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSoftObjectPtr<UStaticMesh> FloorMesh;
 
 	/** Left wall mesh (optional) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshes")
-	UStaticMesh* LeftWallMesh = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSoftObjectPtr<UStaticMesh> LeftWallMesh;
 
 	/** Flip left wall horizontally (useful when reusing same mesh for both sides) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshes")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bFlipLeftWall = false;
 
 	/** Right wall mesh (optional) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshes")
-	UStaticMesh* RightWallMesh = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSoftObjectPtr<UStaticMesh> RightWallMesh;
 
 	/** Flip right wall horizontally (useful when reusing same mesh for both sides) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshes")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bFlipRightWall = false;
 
 	/** Ceiling mesh (optional) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshes")
-	UStaticMesh* CeilingMesh = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSoftObjectPtr<UStaticMesh> CeilingMesh;
 };
 
-USTRUCT(BlueprintType)
-struct FTrackPieceSpawnConfig
+UENUM(BlueprintType)
+enum class ETrackPieceType : uint8
 {
-	GENERATED_BODY()
-
-	/** Lane (0 = Left, 1 = Center, 2 = Right) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 Lane = 1;
-
-	/** Forward position along track */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float ForwardPosition = 0.0f;
-
-	/** Spawn type */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	ESpawnPointType SpawnType = ESpawnPointType::Coin;
-
-	/** Class to spawn */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSubclassOf<AActor> SpawnClass;
-
-	/** Spawn probability (0.0 to 1.0) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float SpawnProbability = 1.0f;
-
-	/** Optional: Name of a Scene component in the track piece blueprint to use as spawn position (overrides Lane/ForwardPosition) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Spawn Position Component Name"))
-	FString SpawnPositionComponentName;
+	Normal,
+	Shop,
+	Boss,
+	Start
 };
+
+namespace TrackPieceUtils
+{
+	static FString ToString(ETrackPieceType Type)
+	{
+		switch (Type)
+		{
+			case ETrackPieceType::Shop: return TEXT("Shop");
+			case ETrackPieceType::Boss: return TEXT("Boss");
+			case ETrackPieceType::Start: return TEXT("Start");
+			case ETrackPieceType::Normal:
+			default: return TEXT("Normal");
+		}
+	}
+
+	static ETrackPieceType FromString(const FString& TypeStr)
+	{
+		if (TypeStr.Equals(TEXT("Shop"), ESearchCase::IgnoreCase)) return ETrackPieceType::Shop;
+		if (TypeStr.Equals(TEXT("Boss"), ESearchCase::IgnoreCase)) return ETrackPieceType::Boss;
+		if (TypeStr.Equals(TEXT("Start"), ESearchCase::IgnoreCase)) return ETrackPieceType::Start;
+		return ETrackPieceType::Normal;
+	}
+}
 
 /**
  * Data asset defining a track piece configuration
@@ -84,33 +86,41 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition")
 	FString PieceName;
 
+	/** Type of track piece */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition")
+	ETrackPieceType PieceType = ETrackPieceType::Normal;
+
+	/** Is this the first piece of the track? */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition")
+	bool bIsFirstPiece = false;
+
 	/** Length of track piece */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition", meta = (ClampMin = "100.0", ClampMax = "10000.0"))
 	float Length = 1000.0f;
 
-	/** Use a blueprint actor instead of assembling meshes */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition", meta = (DisplayName = "Use Blueprint Actor"))
+	/** Width of each lane for this specific piece type */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition", meta = (ClampMin = "100.0", ClampMax = "500.0"))
+	float LaneWidth = 200.0f;
+
+	/** Whether to use a blueprint actor instead of procedural mesh generation */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blueprint")
 	bool bUseBlueprintActor = false;
 
-	/** Blueprint class to spawn (if bUseBlueprintActor is true) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition", meta = (EditCondition = "bUseBlueprintActor", DisplayName = "Blueprint Actor Class"))
+	/** The blueprint actor class to spawn */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blueprint", meta = (EditCondition = "bUseBlueprintActor"))
 	TSubclassOf<ATrackPiece> BlueprintActorClass;
 
-	/** Name of the Scene Component in the blueprint to use as Start Connection (leave empty to use default "StartConnection") */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition", meta = (EditCondition = "bUseBlueprintActor", DisplayName = "Start Connection Component Name"))
-	FString StartConnectionComponentName;
+	/** Component name for start connection */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blueprint", meta = (EditCondition = "bUseBlueprintActor"))
+	FString StartConnectionComponentName = TEXT("StartConnection");
 
-	/** Names of Scene Components in the blueprint to use as End Connections (for forks/turns - leave empty to use default "EndConnection") */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition", meta = (EditCondition = "bUseBlueprintActor", DisplayName = "End Connection Component Names"))
+	/** Component names for end connections */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blueprint", meta = (EditCondition = "bUseBlueprintActor"))
 	TArray<FString> EndConnectionComponentNames;
 
-	/** Meshes to use for this track piece (only used if bUseBlueprintActor is false) */
+	/** Meshes to use for this track piece */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshes", meta = (EditCondition = "!bUseBlueprintActor"))
 	FTrackPieceMeshSet Meshes;
-
-	/** Spawn configurations for this track piece */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
-	TArray<FTrackPieceSpawnConfig> SpawnConfigs;
 
 	/** Minimum difficulty level to use this piece */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Difficulty", meta = (ClampMin = "0"))
@@ -123,9 +133,5 @@ public:
 	/** Weight for random selection (higher = more likely) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Selection", meta = (ClampMin = "1"))
 	int32 SelectionWeight = 1;
-
-	/** Mark this piece as the starting/first piece (only one should be marked) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition", meta = (DisplayName = "Is First Piece"))
-	bool bIsFirstPiece = false;
 };
 

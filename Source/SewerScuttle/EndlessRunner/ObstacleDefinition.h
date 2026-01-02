@@ -8,9 +8,10 @@
 #include "PlayerClass.h"
 #include "ObstacleDefinition.generated.h"
 
+class AObstacle;
+
 /**
- * Data asset defining an obstacle configuration
- * Used to define obstacle properties for content export and server-side validation
+ * Defines properties for a game obstacle
  */
 UCLASS(BlueprintType)
 class SEWERSCUTTLE_API UObstacleDefinition : public UDataAsset
@@ -18,40 +19,40 @@ class SEWERSCUTTLE_API UObstacleDefinition : public UDataAsset
 	GENERATED_BODY()
 
 public:
-	/** Name of this obstacle definition */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition")
+	/** Human-readable name */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
 	FString ObstacleName;
 
-	/** Blueprint class to spawn */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Definition")
+	/** The obstacle blueprint class to spawn */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
 	TSubclassOf<AObstacle> ObstacleClass;
 
-	/** Obstacle type */
+	/** Type of obstacle (Low, High, Full) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties")
 	EObstacleType ObstacleType = EObstacleType::Full;
 
-	/** Damage dealt on collision */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties", meta = (ClampMin = "0.0", ClampMax = "100.0"))
-	float Damage = 10.0f;
+	/** Base damage dealt to player */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties")
+	int32 Damage = 1;
 
-	/** Lives lost on collision */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties", meta = (ClampMin = "1", ClampMax = "10"))
+	/** Number of lives lost on hit */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties")
 	int32 LivesLost = 1;
 
-	/** Whether this obstacle can be broken by Enforcer class */
+	/** Can this obstacle be broken by certain classes? */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties")
 	bool bIsBreakable = false;
 
-	/** If true, bypasses last stand and instantly kills if LivesLost >= player's current lives */
+	/** Should this obstacle bypass last stand protection? */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties")
 	bool bIgnoreLastStand = false;
 
-	/** Player classes that can encounter this obstacle (empty = all classes) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Properties")
-	TArray<EPlayerClass> AllowedClasses;
+	/** Relative probability of being selected */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
+	float SelectionWeight = 1.0f;
 
-	/** Weight for random selection (higher = more likely) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Selection", meta = (ClampMin = "1"))
-	int32 SelectionWeight = 1;
+	/** Classes this obstacle is allowed to appear for (empty = all) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
+	TArray<EPlayerClass> AllowedClasses;
 };
 

@@ -14,25 +14,19 @@ class SEWERSCUTTLE_API SMainMenuWidget : public SCompoundWidget
 public:
 	SLATE_BEGIN_ARGS(SMainMenuWidget)
 	{}
+		SLATE_EVENT(FSimpleDelegate, OnPlayClicked)
+		SLATE_EVENT(FSimpleDelegate, OnShopClicked)
+		SLATE_EVENT(FSimpleDelegate, OnLeaderboardClicked)
+		SLATE_EVENT(FSimpleDelegate, OnSettingsClicked)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
 
-	/** Delegate for play button */
-	DECLARE_DELEGATE(FOnPlayClicked);
-	FOnPlayClicked OnPlayClicked;
-
-	/** Delegate for shop button */
-	DECLARE_DELEGATE(FOnShopClicked);
-	FOnShopClicked OnShopClicked;
-
-	/** Delegate for leaderboard button */
-	DECLARE_DELEGATE(FOnLeaderboardClicked);
-	FOnLeaderboardClicked OnLeaderboardClicked;
-
-	/** Delegate for settings button */
-	DECLARE_DELEGATE(FOnSettingsClicked);
-	FOnSettingsClicked OnSettingsClicked;
+	/** Delegates for buttons */
+	FSimpleDelegate OnPlayClicked;
+	FSimpleDelegate OnShopClicked;
+	FSimpleDelegate OnLeaderboardClicked;
+	FSimpleDelegate OnSettingsClicked;
 
 private:
 	/** Handle play button click */
