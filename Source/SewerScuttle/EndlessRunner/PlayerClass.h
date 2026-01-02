@@ -104,6 +104,10 @@ struct FPlayerClassData
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class")
 	float LaneTransitionSpeedMultiplier = 0.0f;
 
+	/** How responsive lane changes feel (1.0 = normal, higher = more mashable/faster allowed sequence) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Class")
+	float LaneChangeResponsiveness = 1.0f;
+
 	/** Get default class data for a specific class */
 	static FPlayerClassData GetDefaultClassData(EPlayerClass Class);
 

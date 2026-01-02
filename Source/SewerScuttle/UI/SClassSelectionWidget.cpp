@@ -159,11 +159,71 @@ void SClassSelectionWidget::PopulateClassButtons()
 					]
 					+ SWidgetSwitcher::Slot()
 					[
-						SNew(STextBlock)
-						.Text(ClassDef->Description)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 14))
-						.Justification(ETextJustify::Center)
-						.AutoWrapText(true)
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0, 0, 0, 10)
+						[
+							SNew(STextBlock)
+							.Text(ClassDef->Description)
+							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 14))
+							.Justification(ETextJustify::Center)
+							.AutoWrapText(true)
+						]
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.HAlign(HAlign_Center)
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(5, 0)
+							[
+								CreateStatWidget(FText::FromString(TEXT("SPEED")), 
+									FText::Format(FText::FromString(TEXT("{0}x")), FText::AsNumber(ClassDef->ClassData.BaseSpeedMultiplier)),
+									FSlateColor(FLinearColor(0.2f, 0.8f, 1.0f)))
+							]
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(5, 0)
+							[
+								CreateStatWidget(FText::FromString(TEXT("JUMP")), 
+									FText::AsNumber(ClassDef->ClassData.BaseJumpHeight),
+									FSlateColor(FLinearColor(0.2f, 1.0f, 0.2f)))
+							]
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(5, 0)
+							[
+								CreateStatWidget(FText::FromString(TEXT("MAX JUMPS")), 
+									FText::AsNumber(ClassDef->ClassData.MaxJumpCount),
+									FSlateColor(FLinearColor(1.0f, 0.8f, 0.2f)))
+							]
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(5, 0)
+							[
+								CreateStatWidget(FText::FromString(TEXT("WEIGHT")), 
+									FText::AsNumber(ClassDef->ClassData.BaseGravityScale),
+									FSlateColor(FLinearColor(0.8f, 0.4f, 1.0f)))
+							]
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(5, 0)
+							[
+								CreateStatWidget(FText::FromString(TEXT("TURN")), 
+									FText::AsNumber(ClassDef->ClassData.BaseLaneTransitionSpeed),
+									FSlateColor(FLinearColor(1.0f, 0.4f, 0.4f)))
+							]
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(5, 0)
+							[
+								CreateStatWidget(FText::FromString(TEXT("LIVES")), 
+									FText::AsNumber(3 + ClassDef->ClassData.ExtraLives),
+									FSlateColor(FLinearColor(1.0f, 0.2f, 0.2f)))
+							]
+						]
 					]
 				]
 			]
@@ -192,5 +252,28 @@ FReply SClassSelectionWidget::OnClassButtonClicked(UPlayerClassDefinition* Selec
 void SClassSelectionWidget::RefreshClassButtons()
 {
 	PopulateClassButtons();
+}
+
+TSharedRef<SWidget> SClassSelectionWidget::CreateStatWidget(const FText& Label, const FText& Value, const FSlateColor& Color)
+{
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(Label)
+			.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+			.ColorAndOpacity(FSlateColor(FLinearColor(0.7f, 0.7f, 0.7f)))
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(Value)
+			.Font(FCoreStyle::GetDefaultFontStyle("Bold", 14))
+			.ColorAndOpacity(Color)
+		];
 }
 

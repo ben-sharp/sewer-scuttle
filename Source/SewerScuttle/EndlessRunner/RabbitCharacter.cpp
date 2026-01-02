@@ -298,70 +298,42 @@ void ARabbitCharacter::SetupEnhancedInput()
 
 void ARabbitCharacter::MoveLeft()
 {
-	// Determine where we effectively are (target if transitioning, current if not)
-	ELanePosition EffectiveLane = (CurrentLane != TargetLane) ? TargetLane : CurrentLane;
-
-	// Can't move left if already at leftmost lane
-	if (EffectiveLane == ELanePosition::Left)
+	// Dynamic throttle check
+	if (!CanInitiateLaneChange())
 	{
 		return;
 	}
 
-	// If we're transitioning, snap to target first (buffer the input)
-	if (CurrentLane != TargetLane)
-	{
-		CurrentLane = TargetLane;
-		CurrentLaneX = GetLaneXPosition(TargetLane);
-		FVector CurrentLocation = GetActorLocation();
-		CurrentLocation.Y = CurrentLaneX;
-		SetActorLocation(CurrentLocation, false, nullptr, ETeleportType::TeleportPhysics);
-	}
-
-	// Now move one lane to the left from the current position
-	// This ensures we always move exactly one lane
-	if (CurrentLane == ELanePosition::Right)
+	// Move one lane to the left from our current TARGET
+	// This allows smooth sequential lane changes without snapping
+	if (TargetLane == ELanePosition::Right)
 	{
 		TargetLane = ELanePosition::Center;
 	}
-	else if (CurrentLane == ELanePosition::Center)
+	else if (TargetLane == ELanePosition::Center)
 	{
 		TargetLane = ELanePosition::Left;
 	}
-	// If CurrentLane is Left, we already returned above
 }
 
 void ARabbitCharacter::MoveRight()
 {
-	// Determine where we effectively are (target if transitioning, current if not)
-	ELanePosition EffectiveLane = (CurrentLane != TargetLane) ? TargetLane : CurrentLane;
-
-	// Can't move right if already at rightmost lane
-	if (EffectiveLane == ELanePosition::Right)
+	// Dynamic throttle check
+	if (!CanInitiateLaneChange())
 	{
 		return;
 	}
 
-	// If we're transitioning, snap to target first (buffer the input)
-	if (CurrentLane != TargetLane)
-	{
-		CurrentLane = TargetLane;
-		CurrentLaneX = GetLaneXPosition(TargetLane);
-		FVector CurrentLocation = GetActorLocation();
-		CurrentLocation.Y = CurrentLaneX;
-		SetActorLocation(CurrentLocation, false, nullptr, ETeleportType::TeleportPhysics);
-	}
-
-	// Now move one lane to the right from the current position
-	// This ensures we always move exactly one lane
-	if (CurrentLane == ELanePosition::Left)
+	// Move one lane to the right from our current TARGET
+	// This allows smooth sequential lane changes without snapping
+	if (TargetLane == ELanePosition::Left)
 	{
 		TargetLane = ELanePosition::Center;
 	}
-	else if (CurrentLane == ELanePosition::Center)
+	else if (TargetLane == ELanePosition::Center)
 	{
 		TargetLane = ELanePosition::Right;
 	}
-	// If CurrentLane is Right, we already returned above
 }
 
 void ARabbitCharacter::ResetLanePosition()
@@ -420,6 +392,26 @@ void ARabbitCharacter::UpdateLanePosition(float DeltaTime)
 		CurrentLocation.Y = TargetY;
 		SetActorLocation(CurrentLocation, false, nullptr, ETeleportType::TeleportPhysics);
 	}
+}
+
+bool ARabbitCharacter::CanInitiateLaneChange() const
+{
+	// If we're not moving, we can always initiate
+	if (CurrentLane == TargetLane)
+	{
+		return true;
+	}
+
+	// Calculate a dynamic buffer based on turn speed and responsiveness
+	// Faster turn speeds allow for larger buffers (earlier input acceptance)
+	// Default LaneTransitionSpeed is 10.0, Responsiveness is 1.0 -> Buffer = 50.0 units
+	// Lane width is 200.0, so 50.0 is "mostly done" (75% there)
+	float TargetY = GetLaneXPosition(TargetLane);
+	float DistanceToTarget = FMath::Abs(CurrentLaneX - TargetY);
+	
+	float AllowedBuffer = (LaneTransitionSpeed / 10.0f) * LaneChangeResponsiveness * 50.0f;
+	
+	return DistanceToTarget <= AllowedBuffer;
 }
 
 float ARabbitCharacter::GetLaneXPosition(ELanePosition Lane) const

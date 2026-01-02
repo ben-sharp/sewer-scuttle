@@ -723,6 +723,9 @@ void AEndlessRunnerGameMode::ApplyClassPerks(ARabbitCharacter* Player)
 	if (D.bSpawnsSpecialCollectibles) bSpawnSpecialCollectibles = true;
 	if (D.bHasStartingMagnet && D.StartingMagnetDuration > 0.0f) { bMagnetActive = true; GetWorldTimerManager().SetTimer(MagnetTimerHandle, this, &AEndlessRunnerGameMode::ClearMagnet, D.StartingMagnetDuration, false); }
 	if (D.BaseSpeedMultiplier != 1.0f) Player->SetForwardSpeed(Player->GetForwardSpeed() * D.BaseSpeedMultiplier);
+	
+	// Sync responsiveness for dynamic lane change throttle
+	Player->SetLaneChangeResponsiveness(D.LaneChangeResponsiveness);
 
 	// Apply new movement stats
 	if (URabbitAttributeSet* AS = Player->GetAttributeSet())

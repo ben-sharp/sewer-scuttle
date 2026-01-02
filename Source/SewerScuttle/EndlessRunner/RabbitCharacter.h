@@ -158,6 +158,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Class")
 	void SetCanBreakObstacles(bool bCanBreak);
 
+	/** Set lane change responsiveness */
+	UFUNCTION(BlueprintCallable, Category = "Lane")
+	void SetLaneChangeResponsiveness(float NewResponsiveness) { LaneChangeResponsiveness = NewResponsiveness; }
+
 	/** Check if never needs crouch */
 	UFUNCTION(BlueprintPure, Category = "Class")
 	bool GetNeverNeedsCrouch() const { return bNeverNeedsCrouch; }
@@ -193,11 +197,15 @@ protected:
 	float LaneWidth = 200.0f;
 
 	/** Speed of lane transition (can be modified by powerups) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lane", meta = (ClampMin = "1.0", ClampMax = "20.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lane", meta = (ClampMin = "1.0", ClampMax = "50.0"))
 	float LaneTransitionSpeed = 10.0f;
 
+	/** How responsive lane changes feel (1.0 = normal, higher = more mashable) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lane")
+	float LaneChangeResponsiveness = 1.0f;
+
 	/** Base lane transition speed (for powerup reset) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lane", meta = (ClampMin = "1.0", ClampMax = "20.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lane", meta = (ClampMin = "1.0", ClampMax = "50.0"))
 	float BaseLaneTransitionSpeed = 10.0f;
 
 	/** Get lane transition speed */
@@ -206,7 +214,7 @@ protected:
 
 	/** Set lane transition speed (for powerups) */
 	UFUNCTION(BlueprintCallable, Category = "Lane")
-	void SetLaneTransitionSpeed(float NewSpeed) { LaneTransitionSpeed = FMath::Clamp(NewSpeed, 1.0f, 20.0f); }
+	void SetLaneTransitionSpeed(float NewSpeed) { LaneTransitionSpeed = FMath::Clamp(NewSpeed, 1.0f, 50.0f); }
 
 	/** Reset lane transition speed to base (for powerup expiration) */
 	UFUNCTION(BlueprintCallable, Category = "Lane")
@@ -274,6 +282,9 @@ protected:
 private:
 	/** Update lane position smoothly */
 	void UpdateLanePosition(float DeltaTime);
+
+	/** Check if we can initiate a new lane change (dynamic throttle) */
+	bool CanInitiateLaneChange() const;
 
 	/** Get target X position for a lane */
 	float GetLaneXPosition(ELanePosition Lane) const;

@@ -37,6 +37,9 @@ private:
 	/** Populate class buttons from data assets using AssetRegistry */
 	void PopulateClassButtons();
 
+	/** Create a stat display widget for a class */
+	TSharedRef<SWidget> CreateStatWidget(const FText& Label, const FText& Value, const FSlateColor& Color);
+
 	/** Container for class buttons */
 	TSharedPtr<SVerticalBox> ClassListContainer;
 };
