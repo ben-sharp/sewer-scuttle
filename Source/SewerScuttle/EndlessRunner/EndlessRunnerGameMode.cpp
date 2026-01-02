@@ -29,6 +29,7 @@
 #include "MultiCollectible.h"
 #include "PowerUp.h"
 #include "PowerUpDefinition.h"
+#include "ShopItemDefinition.h"
 #include "Obstacle.h"
 #include "PlayerClass.h"
 #include "PlayerClassDefinition.h"
@@ -416,11 +417,19 @@ void AEndlessRunnerGameMode::ResumeGame()
 
 void AEndlessRunnerGameMode::EndGame()
 {
+	if (RunnerGameState == EGameState::GameOver) return;
+
+	// Finalize distance before state change
+	if (CachedPlayer)
+	{
+		DistanceTraveled = TotalPreviousDistance + CachedPlayer->GetActorLocation().X;
+	}
+
 	SetGameState(EGameState::GameOver);
 	
 	if (!SeedId.IsEmpty() && WebServerInterface)
 	{
-		int32 DistanceMeters = FMath::RoundToInt(GetDistanceTraveled());
+		int32 DistanceMeters = FMath::RoundToInt(DistanceTraveled / 800.0f);
 		int32 DurationSeconds = FMath::RoundToInt(GameTime);
 		int32 TrackPiecesSpawned = TrackGenerator ? TrackGenerator->GetTotalTrackPiecesSpawned() : 0;
 		FString StartedAtStr = RunStartTime.ToIso8601();
@@ -743,6 +752,9 @@ void AEndlessRunnerGameMode::OnTrackSequenceReceived(const FTrackSequenceData& S
 	TrackSequence = SequenceData;
 	bTrackSequenceLoaded = true;
 	
+	CurrentShopIndex = -1;
+	LastVisitedShopPiece = nullptr;
+
 	if (CurrentTier > 1) { TotalPreviousDistance = DistanceTraveled; PreviousDistanceForScore = DistanceTraveled; }
 	else { Score = 0; RunCurrency = 0; TrackCurrency = 0; ObstaclesHit = 0; PowerupsUsed = 0; DistanceTraveled = 0.0f; TotalPreviousDistance = 0.0f; PreviousDistanceForScore = 0.0f; GameTime = 0.0f; RunStartTime = FDateTime::Now(); }
 	
@@ -768,8 +780,6 @@ void AEndlessRunnerGameMode::OnTrackSequenceReceived(const FTrackSequenceData& S
 		TrackGenerator->LoadTrackSequence(SequenceData); 
 		TrackGenerator->UpdatePlayerReference(Player); 
 		TrackGenerator->Initialize(Player); // Start spawning from sequence
-		TrackGenerator->OnShopPieceReached.AddUniqueDynamic(this, &AEndlessRunnerGameMode::OnShopPieceReached); 
-		TrackGenerator->OnBossPieceReached.AddUniqueDynamic(this, &AEndlessRunnerGameMode::OnBossPieceReached); 
 	}
 	if (GameplayManager && CurrentTier == 1) GameplayManager->Reset();
 	
@@ -794,29 +804,134 @@ void AEndlessRunnerGameMode::OnBossRewardsReceived(const TArray<FBossRewardData>
 void AEndlessRunnerGameMode::ShowTrackSelection() { SetGameState(EGameState::TrackSelection); if (AEndlessRunnerHUD* HUD = Cast<AEndlessRunnerHUD>(GetWorld()->GetFirstPlayerController()->GetHUD())) HUD->ShowTrackSelection(); }
 void AEndlessRunnerGameMode::SelectTrack(int32 TrackIndex) { if (TrackIndex < 0 || TrackIndex >= CurrentTrackSelection.Tracks.Num()) return; CurrentTrackIndex = TrackIndex; SelectedTrackIndices.Add(TrackIndex); if (WebServerInterface && !SeedId.IsEmpty()) WebServerInterface->SelectTrack(SeedId, CurrentTier, TrackIndex); }
 
-void AEndlessRunnerGameMode::OnShopTriggerOverlap(ATrackPiece* P) { if (!P || RunnerGameState != EGameState::Playing) return; EnterShop(0); }
+void AEndlessRunnerGameMode::OnShopTriggerOverlap(ATrackPiece* ShopPiece) 
+{ 
+	if (!ShopPiece || RunnerGameState != EGameState::Playing) return; 
+
+	if (ShopPiece != LastVisitedShopPiece)
+	{
+		LastVisitedShopPiece = ShopPiece;
+		CurrentShopIndex++;
+		EnterShop(CurrentShopIndex);
+	}
+}
 void AEndlessRunnerGameMode::OnBossTriggerOverlap(ATrackPiece* P) { if (!P || RunnerGameState != EGameState::Playing) return; OnBossReached(); }
 void AEndlessRunnerGameMode::OnBossEndTriggerOverlap(ATrackPiece* P) { if (!P || RunnerGameState != EGameState::BossEncounter) return; OnBossDefeated(); }
 
-void AEndlessRunnerGameMode::EnterShop(int32 Index) { CurrentShopIndex = Index; SetGameState(EGameState::Shop); if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) PC->SetPause(true); if (WebServerInterface && !SeedId.IsEmpty()) WebServerInterface->GetShopItems(SeedId, CurrentTier, CurrentTrackIndex, Index); if (AEndlessRunnerHUD* HUD = Cast<AEndlessRunnerHUD>(GetWorld()->GetFirstPlayerController()->GetHUD())) HUD->ShowShop(); }
+void AEndlessRunnerGameMode::EnterShop(int32 Index) 
+{ 
+	CurrentShopIndex = Index; 
+	SetGameState(EGameState::Shop); 
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) 
+	{
+		PC->SetPause(true);
+		PC->bShowMouseCursor = true;
+		PC->SetInputMode(FInputModeUIOnly());
+	}
+
+	if (TrackSequence.AllShopsData.IsValidIndex(Index))
+	{
+		OnShopItemsReceived(TrackSequence.AllShopsData[Index]);
+	}
+	else if (WebServerInterface && !SeedId.IsEmpty()) 
+	{
+		WebServerInterface->GetShopItems(SeedId, CurrentTier, CurrentTrackIndex, Index); 
+	}
+
+	if (AEndlessRunnerHUD* HUD = Cast<AEndlessRunnerHUD>(GetWorld()->GetFirstPlayerController()->GetHUD())) HUD->ShowShop(); 
+}
+
 void AEndlessRunnerGameMode::ExitShop() { CurrentShopIndex = -1; SetGameState(EGameState::Playing); if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) { PC->SetPause(false); PC->bShowMouseCursor = false; PC->SetInputMode(FInputModeGameOnly()); } if (AEndlessRunnerHUD* HUD = Cast<AEndlessRunnerHUD>(GetWorld()->GetFirstPlayerController()->GetHUD())) HUD->ShowInGameHUD(); }
 
-void AEndlessRunnerGameMode::PurchasePowerUp(const FString& ID, int32 Cost)
+void AEndlessRunnerGameMode::PurchaseItem(const FString& ItemId)
 {
-	if (TrackCurrency < Cost) return;
-	TrackCurrency -= Cost;
-	UPowerUpDefinition* D = FindPowerUpDefinitionById(ID);
-	if (!D) return;
-	ARabbitCharacter* P = Cast<ARabbitCharacter>(GetWorld()->GetFirstPlayerController()->GetPawn());
-	if (P && D->PowerUpClass) { FActorSpawnParameters SP; SP.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn; APowerUp* A = GetWorld()->SpawnActor<APowerUp>(D->PowerUpClass, P->GetActorLocation(), FRotator::ZeroRotator, SP); if (A) A->Collect(P); }
+	// Find item in current shop list to get the cost
+	int32 Cost = 0;
+	FShopItemData SelectedItem;
+	bool bFound = false;
+
+	for (const FShopItemData& Item : ShopItems.Items)
+	{
+		if (Item.Id == ItemId)
+		{
+			Cost = Item.Cost;
+			SelectedItem = Item;
+			bFound = true;
+			break;
+		}
+	}
+
+	if (bFound && RunCurrency >= Cost)
+	{
+		if (WebServerInterface && !SeedId.IsEmpty())
+		{
+			WebServerInterface->PurchaseItem(ItemId, Cost);
+		}
+
+		// Subtract locally for immediate feedback
+		RunCurrency -= Cost;
+		
+		// Apply effect
+		if (ContentRegistry)
+		{
+			// Check if it's a direct PowerUp
+			UPowerUpDefinition* PD = ContentRegistry->FindPowerUpById(ItemId);
+			if (PD && PD->PowerUpClass)
+			{
+				if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+				{
+					if (ARabbitCharacter* Player = Cast<ARabbitCharacter>(PC->GetPawn()))
+					{
+						FActorSpawnParameters SP; 
+						SP.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+						APowerUp* SpawnedPU = GetWorld()->SpawnActor<APowerUp>(PD->PowerUpClass, Player->GetActorLocation(), FRotator::ZeroRotator, SP);
+						if (SpawnedPU)
+						{
+							SpawnedPU->Collect(Player);
+						}
+					}
+				}
+			}
+			else
+			{
+				// Check if it's a Shop Item Definition
+				UShopItemDefinition* SID = ContentRegistry->FindShopItemById(ItemId);
+				if (SID)
+				{
+					if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+					{
+						if (ARabbitCharacter* Player = Cast<ARabbitCharacter>(PC->GetPawn()))
+						{
+							// Apply based on tag and value
+							if (SID->EffectTag.IsValid())
+							{
+								Player->ApplyEffectByTag(SID->EffectTag, SID->EffectValue);
+								UE_LOG(LogTemp, Log, TEXT("GameMode: Applied shop item effect: %s (Value: %.2f)"), *SID->EffectTag.ToString(), SID->EffectValue);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 void AEndlessRunnerGameMode::RerollShop(int32 Index) { TArray<int32> RC = {50, 100, 150, 200}; int32 Cost = ShopItems.Items.Num() < RC.Num() ? RC[ShopItems.Items.Num()] : RC.Last(); if (TrackCurrency < Cost) return; TrackCurrency -= Cost; if (WebServerInterface && !SeedId.IsEmpty()) WebServerInterface->RerollShop(SeedId, CurrentTier, CurrentTrackIndex, Index); }
 
-void AEndlessRunnerGameMode::OnShopPieceReached() { EnterShop(0); }
-void AEndlessRunnerGameMode::OnBossPieceReached() { OnBossReached(); }
 void AEndlessRunnerGameMode::OnBossReached() { SetGameState(EGameState::BossEncounter); }
-void AEndlessRunnerGameMode::OnBossDefeated() { SetGameState(EGameState::BossReward); if (WebServerInterface && !SeedId.IsEmpty()) WebServerInterface->GetBossRewards(SeedId, CurrentTier); }
+void AEndlessRunnerGameMode::OnBossDefeated() 
+{ 
+	SetGameState(EGameState::BossReward); 
+	
+	if (TrackSequence.BossRewards.Num() > 0)
+	{
+		OnBossRewardsReceived(TrackSequence.BossRewards);
+	}
+	else if (WebServerInterface && !SeedId.IsEmpty()) 
+	{
+		WebServerInterface->GetBossRewards(SeedId, CurrentTier); 
+	}
+}
 
 void AEndlessRunnerGameMode::SelectBossReward(const FString& ID)
 {

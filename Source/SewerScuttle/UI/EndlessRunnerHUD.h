@@ -105,6 +105,9 @@ protected:
 	void OnLeaderboardClicked();
 	void OnSettingsClicked();
 
+	/** Handle shop purchase */
+	void OnPurchaseItem(FString ItemId);
+
 	/** Handle shop exit */
 	void OnShopExited();
 

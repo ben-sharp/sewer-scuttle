@@ -5,6 +5,7 @@
 #include "ObstacleDefinition.h"
 #include "PowerUpDefinition.h"
 #include "CollectibleDefinition.h"
+#include "ShopItemDefinition.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Engine/AssetManager.h"
 
@@ -14,6 +15,7 @@ void UContentRegistry::GatherContent()
 	Obstacles.Empty();
 	PowerUps.Empty();
 	Collectibles.Empty();
+	ShopItems.Empty();
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
@@ -62,9 +64,21 @@ void UContentRegistry::GatherContent()
 			Collectibles.Add(Def);
 		}
 	}
+	AssetDataList.Empty();
 
-	UE_LOG(LogTemp, Log, TEXT("ContentRegistry: Gathered %d track pieces, %d obstacles, %d power-ups, %d collectibles"),
-		TrackPieces.Num(), Obstacles.Num(), PowerUps.Num(), Collectibles.Num());
+	// Gather Shop Items
+	AssetDataList.Empty();
+	AssetRegistry.GetAssetsByClass(UShopItemDefinition::StaticClass()->GetClassPathName(), AssetDataList);
+	for (const FAssetData& AssetData : AssetDataList)
+	{
+		if (UShopItemDefinition* Def = Cast<UShopItemDefinition>(AssetData.GetAsset()))
+		{
+			ShopItems.Add(Def);
+		}
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("ContentRegistry: Gathered %d track pieces, %d obstacles, %d power-ups, %d collectibles, %d shop items"),
+		TrackPieces.Num(), Obstacles.Num(), PowerUps.Num(), Collectibles.Num(), ShopItems.Num());
 }
 
 UTrackPieceDefinition* UContentRegistry::FindTrackPieceById(const FString& ContentId) const
@@ -99,6 +113,15 @@ UCollectibleDefinition* UContentRegistry::FindCollectibleById(const FString& Con
 	for (UCollectibleDefinition* Def : Collectibles)
 	{
 		if (Def && (Def->GetName() == ContentId || Def->CollectibleName == ContentId)) return Def;
+	}
+	return nullptr;
+}
+
+UShopItemDefinition* UContentRegistry::FindShopItemById(const FString& ContentId) const
+{
+	for (UShopItemDefinition* Def : ShopItems)
+	{
+		if (Def && (Def->GetName() == ContentId || Def->ItemName == ContentId)) return Def;
 	}
 	return nullptr;
 }

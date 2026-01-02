@@ -348,6 +348,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GAS")
 	void ResetGASEffects();
 
+	/** Apply an effect based on Gameplay Tag and value (from shop items) */
+	UFUNCTION(BlueprintCallable, Category = "GAS")
+	void ApplyEffectByTag(FGameplayTag Tag, float Value);
+
 protected:
 	/** Ability System Component */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GAS")

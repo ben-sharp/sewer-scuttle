@@ -6,6 +6,7 @@
 #include "ObstacleDefinition.h"
 #include "PowerUpDefinition.h"
 #include "CollectibleDefinition.h"
+#include "ShopItemDefinition.h"
 #include "PlayerClass.h"
 #include "Obstacle.h"
 #include "PowerUp.h"
@@ -149,9 +150,19 @@ FString UContentExporter::ExportToJson(UContentRegistry* Registry, const FString
 		PropsObj->SetNumberField(TEXT("cost_multiplier_per_tier"), (double)Def->CostMultiplierPerTier);
 		
 		TArray<TSharedPtr<FJsonValue>> TiersArray;
-		for (ETrackTier Tier : Def->DifficultyAvailability)
+		if (Def->DifficultyAvailability.Num() > 0)
 		{
-			TiersArray.Add(MakeShareable(new FJsonValueString(TrackTierUtils::ToString(Tier))));
+			for (ETrackTier Tier : Def->DifficultyAvailability)
+			{
+				TiersArray.Add(MakeShareable(new FJsonValueString(TrackTierUtils::ToString(Tier))));
+			}
+		}
+		else
+		{
+			// Fallback to all tiers if empty
+			TiersArray.Add(MakeShareable(new FJsonValueString(TEXT("T1"))));
+			TiersArray.Add(MakeShareable(new FJsonValueString(TEXT("T2"))));
+			TiersArray.Add(MakeShareable(new FJsonValueString(TEXT("T3"))));
 		}
 		PropsObj->SetArrayField(TEXT("difficulty_availability"), TiersArray);
 
@@ -183,6 +194,52 @@ FString UContentExporter::ExportToJson(UContentRegistry* Registry, const FString
 			ClassesArray.Add(MakeShareable(new FJsonValueString(FPlayerClassData::PlayerClassToString(PlayerClass))));
 		}
 		PropsObj->SetArrayField(TEXT("allowed_classes"), ClassesArray);
+
+		DefObj->SetObjectField(TEXT("properties"), PropsObj);
+		DefinitionsArray.Add(MakeShareable(new FJsonValueObject(DefObj)));
+	}
+
+	// Export Shop Items
+	for (UShopItemDefinition* Def : Registry->GetShopItems())
+	{
+		TSharedPtr<FJsonObject> DefObj = MakeShareable(new FJsonObject);
+		DefObj->SetStringField(TEXT("content_id"), Def->GetName());
+		DefObj->SetStringField(TEXT("name"), Def->ItemName);
+		DefObj->SetStringField(TEXT("type"), TEXT("shop_item"));
+
+		TSharedPtr<FJsonObject> PropsObj = MakeShareable(new FJsonObject);
+		PropsObj->SetNumberField(TEXT("base_cost"), Def->BaseCost);
+		PropsObj->SetStringField(TEXT("item_type"), Def->ItemType == EShopItemType::PowerUp ? TEXT("PowerUp") : 
+													Def->ItemType == EShopItemType::StatModifier ? TEXT("StatModifier") :
+													Def->ItemType == EShopItemType::Collectible ? TEXT("Collectible") : TEXT("Custom"));
+		PropsObj->SetStringField(TEXT("effect_tag"), Def->EffectTag.ToString());
+		PropsObj->SetNumberField(TEXT("effect_value"), Def->EffectValue);
+		PropsObj->SetStringField(TEXT("description"), Def->Description.ToString());
+		PropsObj->SetBoolField(TEXT("can_be_boss_reward"), Def->bCanBeBossReward);
+
+		TArray<TSharedPtr<FJsonValue>> ClassesArray;
+		for (EPlayerClass PlayerClass : Def->AllowedClasses)
+		{
+			ClassesArray.Add(MakeShareable(new FJsonValueString(FPlayerClassData::PlayerClassToString(PlayerClass))));
+		}
+		PropsObj->SetArrayField(TEXT("allowed_classes"), ClassesArray);
+
+		TArray<TSharedPtr<FJsonValue>> TiersArray;
+		if (Def->DifficultyAvailability.Num() > 0)
+		{
+			for (ETrackTier Tier : Def->DifficultyAvailability)
+			{
+				TiersArray.Add(MakeShareable(new FJsonValueString(TrackTierUtils::ToString(Tier))));
+			}
+		}
+		else
+		{
+			// Fallback to all tiers if empty
+			TiersArray.Add(MakeShareable(new FJsonValueString(TEXT("T1"))));
+			TiersArray.Add(MakeShareable(new FJsonValueString(TEXT("T2"))));
+			TiersArray.Add(MakeShareable(new FJsonValueString(TEXT("T3"))));
+		}
+		PropsObj->SetArrayField(TEXT("difficulty_availability"), TiersArray);
 
 		DefObj->SetObjectField(TEXT("properties"), PropsObj);
 		DefinitionsArray.Add(MakeShareable(new FJsonValueObject(DefObj)));

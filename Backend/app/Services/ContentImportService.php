@@ -65,20 +65,23 @@ class ContentImportService
     {
         $content = null;
 
-        // Try absolute path first
-        if (file_exists($path)) {
-            $content = file_get_contents($path);
-        } 
-        // Try storage path
-        elseif (file_exists(storage_path($path))) {
-            $content = file_get_contents(storage_path($path));
+        // Paths to check
+        $paths = [
+            $path, // Absolute or relative to CWD
+            storage_path($path), // storage/content/latest.json
+            storage_path('app/' . $path), // storage/app/content/latest.json
+            storage_path('app/private/' . $path), // storage/app/private/content/latest.json
+        ];
+
+        foreach ($paths as $p) {
+            if (file_exists($p)) {
+                $content = file_get_contents($p);
+                break;
+            }
         }
-        // Try local storage disk
-        elseif (Storage::disk('local')->exists($path)) {
-            $content = Storage::disk('local')->get($path);
-        }
-        else {
-            throw new \Exception("File not found: {$path} (checked absolute, storage_path, and local disk)");
+
+        if (!$content) {
+            throw new \Exception("File not found: {$path} (checked local app storage, absolute path, and storage_path)");
         }
 
         $data = json_decode($content, true);

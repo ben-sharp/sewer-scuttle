@@ -79,42 +79,6 @@ struct FTrackSelectionData
 	TArray<FTrackInfo> Tracks;
 };
 
-/** Track piece with prescribed spawns */
-USTRUCT(BlueprintType)
-struct FTrackPiecePrescription
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite)
-    FString PieceId;
-
-    /** Map of component name to specific definition ID to spawn */
-    UPROPERTY(BlueprintReadWrite)
-    TMap<FString, FString> PrescribedSpawns;
-};
-
-/** Track sequence data (from /runs/select-track) */
-USTRUCT(BlueprintType)
-struct FTrackSequenceData
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadWrite)
-	TArray<FTrackPiecePrescription> Pieces;
-
-	UPROPERTY(BlueprintReadWrite)
-	TArray<int32> ShopPositions;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString BossId;
-
-	UPROPERTY(BlueprintReadWrite)
-	int32 Length = 0;
-
-	UPROPERTY(BlueprintReadWrite)
-	int32 ShopCount = 0;
-};
-
 /** Shop item data */
 USTRUCT(BlueprintType)
 struct FShopItemData
@@ -158,6 +122,50 @@ struct FBossRewardData
 
 	UPROPERTY(BlueprintReadWrite)
 	TMap<FString, FString> Properties;
+};
+
+/** Track piece with prescribed spawns */
+USTRUCT(BlueprintType)
+struct FTrackPiecePrescription
+{
+    GENERATED_BODY()
+
+    UPROPERTY(BlueprintReadWrite)
+    FString PieceId;
+
+    /** Map of component name to specific definition ID to spawn */
+    UPROPERTY(BlueprintReadWrite)
+    TMap<FString, FString> PrescribedSpawns;
+};
+
+/** Track sequence data (from /runs/select-track) */
+USTRUCT(BlueprintType)
+struct FTrackSequenceData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FTrackPiecePrescription> Pieces;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<int32> ShopPositions;
+
+	UPROPERTY(BlueprintReadWrite)
+	FString BossId;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 Length = 0;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 ShopCount = 0;
+
+	/** Pre-determined items for each shop on the track */
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FShopData> AllShopsData;
+
+	/** Pre-determined reward options for the boss at the end of the tier */
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FBossRewardData> BossRewards;
 };
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FOnSeedReceived, const FRunSeedData&, SeedData);

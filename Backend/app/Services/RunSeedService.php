@@ -82,8 +82,22 @@ class RunSeedService
         $track = $runData['tiers'][$tier][$trackIndex];
         
         // Generate the actual piece sequence for this track
-        // We do this on-demand to keep the cached seed smaller, but it's still deterministic
         $sequence = $this->generatePieceSequence($track, $runData['seed'] + $tier + $trackIndex, $runData['player_class'] ?? 'Vanilla');
+
+        // Include shop items for all shops on this track
+        $allShopItems = [];
+        for ($i = 0; $i < $track['shop_count']; $i++) {
+            $shopKey = "{$tier}_{$trackIndex}_{$i}";
+            if (isset($runData['shop_items'][$shopKey])) {
+                $allShopItems[] = $runData['shop_items'][$shopKey];
+            } else {
+                // Fallback generation if missing from cache
+                $allShopItems[] = $this->generateShopItems($tier, $trackIndex, $i, $runData['seed'] + $tier + $trackIndex + $i, $runData['player_class'] ?? 'Vanilla');
+            }
+        }
+
+        // Include boss rewards for this tier
+        $bossRewards = $runData['boss_rewards'][$tier] ?? $this->generateBossRewards($tier, $runData['seed'] + $tier + 100, $runData['player_class'] ?? 'Vanilla');
 
         return [
             'pieces' => $sequence['pieces'],
@@ -91,6 +105,8 @@ class RunSeedService
             'boss_id' => $track['boss_id'],
             'length' => $track['length'],
             'shop_count' => $track['shop_count'],
+            'all_shop_items' => $allShopItems,
+            'boss_rewards' => $bossRewards['rewards'] ?? [],
         ];
     }
 
@@ -299,25 +315,30 @@ class RunSeedService
         $config = config('game.tracks');
         $itemCount = mt_rand($config['shop_item_count'][0], $config['shop_item_count'][1]);
 
-        // Filter powerups by tier availability and player class
+        // Filter shop items by tier availability and player class
         $tierName = "T{$tier}";
-        $query = ContentDefinition::where('content_type', 'powerup')
+        $query = ContentDefinition::where('content_type', 'shop_item')
             ->where('is_active', true)
             ->whereJsonContains('properties->difficulty_availability', $tierName);
         
-        $powerups = $query->get()->filter(function($pu) use ($playerClass) {
-            $allowed = $pu->properties['allowed_classes'] ?? [];
+        $availableItems = $query->get()->filter(function($item) use ($playerClass) {
+            $allowed = $item->properties['allowed_classes'] ?? [];
             return count($allowed) === 0 || in_array($playerClass, $allowed);
         });
 
-        if ($powerups->isEmpty()) {
-            $powerups = ContentDefinition::where('content_type', 'powerup')->where('is_active', true)->get();
+        if ($availableItems->isEmpty()) {
+            $availableItems = ContentDefinition::where('content_type', 'shop_item')->where('is_active', true)->get();
         }
 
-        $selected = $powerups;
-        if ($powerups->count() > $itemCount) {
+        if ($availableItems->isEmpty()) {
+            \Log::warning("RunSeedService: No shop items found in database!");
+            return ['items' => []];
+        }
+
+        $selected = $availableItems;
+        if ($availableItems->count() > $itemCount) {
             $selected = collect();
-            $tempList = $powerups->values()->all();
+            $tempList = $availableItems->values()->all();
             for ($i = 0; $i < $itemCount; $i++) {
                 $idx = mt_rand(0, count($tempList) - 1);
                 $selected->push($tempList[$idx]);
@@ -325,16 +346,18 @@ class RunSeedService
             }
         }
 
-        foreach ($selected as $pu) {
-            $baseCost = $pu->properties['base_cost'] ?? 100;
-            $multiplier = $pu->properties['cost_multiplier_per_tier'] ?? 0.5;
-            $cost = (int)($baseCost * (1 + ($tier - 1) * $multiplier));
+        $items = [];
+        foreach ($selected as $item) {
+            $baseCost = $item->properties['base_cost'] ?? 100;
+            // For UShopItemDefinition, we might not have a multiplier per tier in the DA, 
+            // but we can apply one here or use the one from the properties if we add it.
+            $cost = (int)($baseCost * (1 + ($tier - 1) * 0.5));
 
             $items[] = [
-                'id' => $pu->content_id,
-                'name' => $pu->name,
+                'id' => $item->content_id,
+                'name' => $item->name,
                 'cost' => $cost,
-                'properties' => $pu->properties,
+                'properties' => $item->properties,
             ];
         }
 
@@ -348,23 +371,32 @@ class RunSeedService
         $rewardCount = mt_rand($config['boss_reward_count'][0], $config['boss_reward_count'][1]);
 
         $tierName = "T{$tier}";
-        $query = ContentDefinition::where('content_type', 'powerup')
+        $query = ContentDefinition::where('content_type', 'shop_item')
             ->where('is_active', true)
+            ->where('properties->can_be_boss_reward', true)
             ->whereJsonContains('properties->difficulty_availability', $tierName);
         
-        $powerups = $query->get()->filter(function($pu) use ($playerClass) {
-            $allowed = $pu->properties['allowed_classes'] ?? [];
+        $availableRewards = $query->get()->filter(function($item) use ($playerClass) {
+            $allowed = $item->properties['allowed_classes'] ?? [];
             return count($allowed) === 0 || in_array($playerClass, $allowed);
         });
 
-        if ($powerups->isEmpty()) {
-            $powerups = ContentDefinition::where('content_type', 'powerup')->where('is_active', true)->get();
+        if ($availableRewards->isEmpty()) {
+            $availableRewards = ContentDefinition::where('content_type', 'shop_item')
+                ->where('is_active', true)
+                ->where('properties->can_be_boss_reward', true)
+                ->get();
         }
 
-        $selected = $powerups;
-        if ($powerups->count() > $rewardCount) {
+        if ($availableRewards->isEmpty()) {
+            \Log::warning("RunSeedService: No boss rewards found in database!");
+            return ['rewards' => []];
+        }
+
+        $selected = $availableRewards;
+        if ($availableRewards->count() > $rewardCount) {
             $selected = collect();
-            $tempList = $powerups->values()->all();
+            $tempList = $availableRewards->values()->all();
             for ($i = 0; $i < $rewardCount; $i++) {
                 $idx = mt_rand(0, count($tempList) - 1);
                 $selected->push($tempList[$idx]);
@@ -372,11 +404,12 @@ class RunSeedService
             }
         }
 
-        foreach ($selected as $pu) {
+        $rewards = [];
+        foreach ($selected as $item) {
             $rewards[] = [
-                'id' => $pu->content_id,
-                'name' => $pu->name,
-                'properties' => $pu->properties,
+                'id' => $item->content_id,
+                'name' => $item->name,
+                'properties' => $item->properties,
             ];
         }
 

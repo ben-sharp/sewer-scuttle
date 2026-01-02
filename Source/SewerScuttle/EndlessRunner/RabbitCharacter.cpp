@@ -1229,3 +1229,46 @@ void ARabbitCharacter::ResetGASEffects()
 	UE_LOG(LogTemp, Log, TEXT("RabbitCharacter: Reset all GAS effects, multipliers, and base attributes to defaults"));
 }
 
+void ARabbitCharacter::ApplyEffectByTag(FGameplayTag Tag, float Value)
+{
+	if (!AbilitySystemComponent || !AttributeSet) return;
+
+	// Identify which attribute to modify based on the tag
+	if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("SpeedMultiplier"))))
+	{
+		AttributeSet->SetSpeedMultiplier(AttributeSet->GetSpeedMultiplier() + Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("JumpHeightMultiplier"))))
+	{
+		AttributeSet->SetJumpHeightMultiplier(AttributeSet->GetJumpHeightMultiplier() + Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("BaseMaxJumpCount"))))
+	{
+		AttributeSet->SetBaseMaxJumpCount(AttributeSet->GetBaseMaxJumpCount() + Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("BaseLives"))))
+	{
+		AttributeSet->SetBaseLives(AttributeSet->GetBaseLives() + Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("CoinMultiplier"))))
+	{
+		AttributeSet->SetCoinMultiplier(AttributeSet->GetCoinMultiplier() + Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("ScoreMultiplier"))))
+	{
+		AttributeSet->SetScoreMultiplier(AttributeSet->GetScoreMultiplier() + Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("MagnetActive"))))
+	{
+		AttributeSet->SetMagnetActive(Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("AutopilotActive"))))
+	{
+		AttributeSet->SetAutopilotActive(Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("InvincibilityActive"))))
+	{
+		AttributeSet->SetInvincibilityActive(Value);
+	}
+}
+

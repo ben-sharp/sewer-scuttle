@@ -105,13 +105,20 @@ void AEndlessRunnerHUD::ShowShop()
 	if (GEngine && GEngine->GameViewport)
 	{
 		SAssignNew(ShopWidget, SShopWidget)
-			.OnBackClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::OnShopExited));
+			.OnBackClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::OnShopExited))
+			.OnPurchaseItem(FOnPurchaseItem::CreateUObject(this, &AEndlessRunnerHUD::OnPurchaseItem));
 
 		if (AEndlessRunnerGameMode* GM = Cast<AEndlessRunnerGameMode>(GetWorld()->GetAuthGameMode()))
 		{
 			if (GM->GetCurrencyManager())
 			{
 				ShopWidget->UpdateCurrency(GM->GetCurrencyManager()->GetCurrency());
+			}
+			
+			// If we already have items cached in GameMode, update the widget immediately
+			if (GM->GetShopItems().Items.Num() > 0)
+			{
+				ShopWidget->UpdateItems(GM->GetShopItems());
 			}
 		}
 
@@ -325,6 +332,20 @@ void AEndlessRunnerHUD::OnShopItemsReceived(const FShopData& ShopData)
 	if (ShopWidget.IsValid())
 	{
 		ShopWidget->UpdateItems(ShopData);
+	}
+}
+
+void AEndlessRunnerHUD::OnPurchaseItem(FString ItemId)
+{
+	if (AEndlessRunnerGameMode* GM = Cast<AEndlessRunnerGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GM->PurchaseItem(ItemId);
+		
+		// Update currency display after purchase
+		if (ShopWidget.IsValid() && GM->GetCurrencyManager())
+		{
+			ShopWidget->UpdateCurrency(GM->GetCurrencyManager()->GetCurrency());
+		}
 	}
 }
 

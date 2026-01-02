@@ -10,6 +10,7 @@ class UTrackPieceDefinition;
 class UObstacleDefinition;
 class UPowerUpDefinition;
 class UCollectibleDefinition;
+class UShopItemDefinition;
 
 /**
  * Registry for gathering all game content definitions for export
@@ -35,6 +36,9 @@ public:
 	/** Get gathered collectibles */
 	const TArray<UCollectibleDefinition*>& GetCollectibles() const { return Collectibles; }
 
+	/** Get gathered shop items */
+	const TArray<UShopItemDefinition*>& GetShopItems() const { return ShopItems; }
+
 	/** Find a track piece definition by its ID (AssetName) */
 	UFUNCTION(BlueprintPure, Category = "Content")
 	UTrackPieceDefinition* FindTrackPieceById(const FString& ContentId) const;
@@ -51,6 +55,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Content")
 	UCollectibleDefinition* FindCollectibleById(const FString& ContentId) const;
 
+	/** Find a shop item definition by its ID (AssetName) */
+	UFUNCTION(BlueprintPure, Category = "Content")
+	UShopItemDefinition* FindShopItemById(const FString& ContentId) const;
+
 private:
 	UPROPERTY()
 	TArray<UTrackPieceDefinition*> TrackPieces;
@@ -63,5 +71,8 @@ private:
 
 	UPROPERTY()
 	TArray<UCollectibleDefinition*> Collectibles;
+
+	UPROPERTY()
+	TArray<UShopItemDefinition*> ShopItems;
 };
 

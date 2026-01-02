@@ -167,9 +167,6 @@ protected:
 	/** Map of spawned pieces to their content IDs (for shop/boss detection) */
 	TMap<ATrackPiece*, FString> PieceIdMap;
 
-	/** Set of pieces that have already triggered events */
-	TSet<ATrackPiece*> ReachedPieces;
-
 	/** Spawn a new track piece (from sequence or random for endless) */
 	void SpawnTrackPiece(float Position);
 

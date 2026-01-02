@@ -82,7 +82,7 @@ class RunController extends Controller
             'started_at' => 'string|nullable',
         ]);
 
-        $validationResult = $this->validationService.validate($validated);
+        $validationResult = $this->validationService->validate($validated);
         
         $player = $request->user()?->player;
 

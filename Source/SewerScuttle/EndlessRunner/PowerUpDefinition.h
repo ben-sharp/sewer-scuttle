@@ -10,35 +10,6 @@
 
 class APowerUp;
 
-UENUM(BlueprintType)
-enum class ETrackTier : uint8
-{
-    T1	UMETA(DisplayName = "Tier 1"),
-    T2	UMETA(DisplayName = "Tier 2"),
-    T3	UMETA(DisplayName = "Tier 3")
-};
-
-namespace TrackTierUtils
-{
-    static FString ToString(ETrackTier Tier)
-    {
-        switch (Tier)
-        {
-            case ETrackTier::T2: return TEXT("T2");
-            case ETrackTier::T3: return TEXT("T3");
-            case ETrackTier::T1:
-            default: return TEXT("T1");
-        }
-    }
-
-    static ETrackTier FromString(const FString& TierStr)
-    {
-        if (TierStr.Equals(TEXT("T2"), ESearchCase::IgnoreCase)) return ETrackTier::T2;
-        if (TierStr.Equals(TEXT("T3"), ESearchCase::IgnoreCase)) return ETrackTier::T3;
-        return ETrackTier::T1;
-    }
-}
-
 /**
  * Defines properties for a game power-up
  */

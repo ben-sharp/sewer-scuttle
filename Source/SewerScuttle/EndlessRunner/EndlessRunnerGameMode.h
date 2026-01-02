@@ -91,6 +91,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Score")
 	float GetGameTime() const { return GameTime; }
 
+	/** Purchase an item from the shop */
+	UFUNCTION(BlueprintCallable, Category = "Shop")
+	void PurchaseItem(const FString& ItemId);
+
 	/** Get track generator */
 	UFUNCTION(BlueprintPure, Category = "Game")
 	ATrackGenerator* GetTrackGenerator() const { return TrackGenerator; }
@@ -266,10 +270,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Shop")
 	void ExitShop();
 
-	/** Purchase a powerup from shop */
-	UFUNCTION(BlueprintCallable, Category = "Shop")
-	void PurchasePowerUp(const FString& PowerUpId, int32 Cost);
-
 	/** Reroll shop items */
 	UFUNCTION(BlueprintCallable, Category = "Shop")
 	void RerollShop(int32 ShopIndex);
@@ -301,14 +301,6 @@ public:
 	/** Start endless mode */
 	UFUNCTION(BlueprintCallable, Category = "Track Progression")
 	void StartEndlessMode();
-
-	/** Called when shop piece is reached (from TrackGenerator delegate) */
-	UFUNCTION()
-	void OnShopPieceReached();
-
-	/** Called when boss piece is reached (from TrackGenerator delegate) */
-	UFUNCTION()
-	void OnBossPieceReached();
 
 	/** Check if magnet is active */
 	UFUNCTION(BlueprintPure, Category = "PowerUp")
@@ -471,6 +463,10 @@ protected:
 
 	/** Full sequence of piece IDs spawned in this run */
 	TArray<FString> FullPieceSequence;
+
+	/** Last shop piece visited to prevent double-triggering */
+	UPROPERTY()
+	ATrackPiece* LastVisitedShopPiece = nullptr;
 
 	/** Flag indicating if track sequence is loaded (seeded run) */
 	bool bTrackSequenceLoaded = false;

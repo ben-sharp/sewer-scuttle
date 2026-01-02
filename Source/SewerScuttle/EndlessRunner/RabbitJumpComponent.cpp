@@ -60,11 +60,9 @@ void URabbitJumpComponent::PerformJump()
 	}
 	else
 	{
-		// In air - check if we have jumps remaining for multi-jump
-		int32 CurrentMaxJumpCount = GetMaxJumpCount();
-		if (CurrentJumpCount >= CurrentMaxJumpCount)
+		// In air - check if we have multi-jumps remaining
+		if (CurrentJumpCount >= GetMaxJumpCount())
 		{
-			// No jumps remaining
 			return;
 		}
 	}

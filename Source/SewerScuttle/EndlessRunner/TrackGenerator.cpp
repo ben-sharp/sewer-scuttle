@@ -36,28 +36,6 @@ void ATrackGenerator::Tick(float DeltaTime)
 	if (!PlayerCharacter) return;
 	DistanceTraveled = PlayerCharacter->GetActorLocation().X;
 
-	// Check for reached pieces (Shops/Bosses)
-	for (ATrackPiece* Piece : ActiveTrackPieces)
-	{
-		if (Piece && !ReachedPieces.Contains(Piece))
-		{
-			if (DistanceTraveled >= Piece->GetActorLocation().X)
-			{
-				ReachedPieces.Add(Piece);
-				FString* PieceId = PieceIdMap.Find(Piece);
-				if (PieceId)
-				{
-					UTrackPieceDefinition* D = FindTrackPieceDefinitionById(*PieceId);
-					if (D)
-					{
-						if (D->PieceType == ETrackPieceType::Shop) OnShopPieceReached.Broadcast();
-						else if (D->PieceType == ETrackPieceType::Boss) OnBossPieceReached.Broadcast();
-					}
-				}
-			}
-		}
-	}
-
 	SpawnCheckTimer += DeltaTime;
 	if (SpawnCheckTimer >= SpawnCheckInterval)
 	{
@@ -156,7 +134,6 @@ void ATrackGenerator::Reset()
 	for (ATrackPiece* P : ActiveTrackPieces) if (IsValid(P)) { P->ClearSpawnedActors(); P->Destroy(); }
 	ActiveTrackPieces.Empty(); 
 	PieceIdMap.Empty(); 
-	ReachedPieces.Empty();
 	TotalTrackPiecesSpawned = 0; 
 	LastSpawnPosition = 0.0f; 
 	DistanceTraveled = 0.0f; 

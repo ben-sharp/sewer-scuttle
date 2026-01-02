@@ -203,6 +203,73 @@ void UWebServerInterface::OnTrackSequenceResponse(int32 ResponseCode, const FStr
 			SequenceData.Length = JsonObject->GetIntegerField(TEXT("length"));
 			SequenceData.ShopCount = JsonObject->GetIntegerField(TEXT("shop_count"));
 
+			// Parse shop items
+			const TArray<TSharedPtr<FJsonValue>>* AllShopsArray;
+			if (JsonObject->TryGetArrayField(TEXT("all_shop_items"), AllShopsArray))
+			{
+				for (const TSharedPtr<FJsonValue>& ShopValue : *AllShopsArray)
+				{
+					if (ShopValue->Type == EJson::Object)
+					{
+						TSharedPtr<FJsonObject> ShopObj = ShopValue->AsObject();
+						FShopData ShopData;
+						const TArray<TSharedPtr<FJsonValue>>* ItemsArray;
+						if (ShopObj->TryGetArrayField(TEXT("items"), ItemsArray))
+						{
+							for (const TSharedPtr<FJsonValue>& ItemValue : *ItemsArray)
+							{
+								TSharedPtr<FJsonObject> ItemObj = ItemValue->AsObject();
+								FShopItemData Item;
+								Item.Id = ItemObj->GetStringField(TEXT("id"));
+								Item.Name = ItemObj->GetStringField(TEXT("name"));
+								Item.Cost = ItemObj->GetIntegerField(TEXT("cost"));
+								
+								const TSharedPtr<FJsonObject>* PropsObj;
+								if (ItemObj->TryGetObjectField(TEXT("properties"), PropsObj))
+								{
+									for (auto& Prop : (*PropsObj)->Values)
+									{
+										if (Prop.Value->Type == EJson::String) Item.Properties.Add(Prop.Key, Prop.Value->AsString());
+										else if (Prop.Value->Type == EJson::Number) Item.Properties.Add(Prop.Key, FString::Printf(TEXT("%f"), Prop.Value->AsNumber()));
+										else if (Prop.Value->Type == EJson::Boolean) Item.Properties.Add(Prop.Key, Prop.Value->AsBool() ? TEXT("true") : TEXT("false"));
+									}
+								}
+								ShopData.Items.Add(Item);
+							}
+						}
+						SequenceData.AllShopsData.Add(ShopData);
+					}
+				}
+			}
+
+			// Parse boss rewards
+			const TArray<TSharedPtr<FJsonValue>>* RewardsArray;
+			if (JsonObject->TryGetArrayField(TEXT("boss_rewards"), RewardsArray))
+			{
+				for (const TSharedPtr<FJsonValue>& RewardValue : *RewardsArray)
+				{
+					if (RewardValue->Type == EJson::Object)
+					{
+						TSharedPtr<FJsonObject> RewardObj = RewardValue->AsObject();
+						FBossRewardData Reward;
+						Reward.Id = RewardObj->GetStringField(TEXT("id"));
+						Reward.Name = RewardObj->GetStringField(TEXT("name"));
+						
+						const TSharedPtr<FJsonObject>* PropsObj;
+						if (RewardObj->TryGetObjectField(TEXT("properties"), PropsObj))
+						{
+							for (auto& Prop : (*PropsObj)->Values)
+							{
+								if (Prop.Value->Type == EJson::String) Reward.Properties.Add(Prop.Key, Prop.Value->AsString());
+								else if (Prop.Value->Type == EJson::Number) Reward.Properties.Add(Prop.Key, FString::Printf(TEXT("%f"), Prop.Value->AsNumber()));
+								else if (Prop.Value->Type == EJson::Boolean) Reward.Properties.Add(Prop.Key, Prop.Value->AsBool() ? TEXT("true") : TEXT("false"));
+							}
+						}
+						SequenceData.BossRewards.Add(Reward);
+					}
+				}
+			}
+
 			if (OnTrackSequenceReceived.IsBound())
 			{
 				OnTrackSequenceReceived.Execute(SequenceData);

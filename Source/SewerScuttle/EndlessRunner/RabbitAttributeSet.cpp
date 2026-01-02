@@ -111,7 +111,7 @@ void URabbitAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute
 	}
 	else if (Attribute == GetBaseMaxJumpCountAttribute())
 	{
-		NewValue = FMath::Clamp(NewValue, 1.0f, 5.0f);
+		NewValue = FMath::Max(NewValue, 1.0f);
 	}
 }
 
