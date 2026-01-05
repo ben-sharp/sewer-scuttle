@@ -738,6 +738,10 @@ void AEndlessRunnerGameMode::ApplyClassPerks(ARabbitCharacter* Player)
 		AS->SetGravityScaleMultiplier(D.GravityScaleMultiplier);
 		AS->SetBaseLaneTransitionSpeed(D.BaseLaneTransitionSpeed);
 		AS->SetLaneTransitionSpeedMultiplier(D.LaneTransitionSpeedMultiplier);
+		
+		// Set new responsiveness attributes
+		AS->SetBaseLaneChangeResponsiveness(D.LaneChangeResponsiveness);
+		AS->SetLaneChangeResponsivenessMultiplier(0.0f);
 	}
 }
 

@@ -228,6 +228,16 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
 	float ForwardSpeed = 1000.0f;
 
+	/** Toggle for lane and buffer debug visualization */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lane|Debug")
+	bool bShowLaneDebug = false;
+
+	/** Current responsiveness value synced from GAS */
+	float CurrentResponsiveness = 1.0f;
+
+	/** Draw debug visualization for lanes and input buffers */
+	void DrawLaneDebugVisualization();
+
 	/** Current lane position */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Lane")
 	ELanePosition CurrentLane = ELanePosition::Center;

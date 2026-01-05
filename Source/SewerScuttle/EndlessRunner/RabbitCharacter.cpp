@@ -214,10 +214,16 @@ void ARabbitCharacter::Tick(float DeltaTime)
 		{
 			ForwardSpeed = AttributeSet->GetCurrentSpeed();
 			LaneTransitionSpeed = AttributeSet->GetCurrentLaneTransitionSpeed();
+			CurrentResponsiveness = AttributeSet->GetCurrentLaneChangeResponsiveness();
 			if (GetCharacterMovement())
 			{
 				GetCharacterMovement()->GravityScale = AttributeSet->GetCurrentGravityScale();
 			}
+		}
+
+		if (bShowLaneDebug)
+		{
+			DrawLaneDebugVisualization();
 		}
 		
 		// Always apply forward movement input
@@ -371,6 +377,42 @@ void ARabbitCharacter::StopSlide()
 	}
 }
 
+void ARabbitCharacter::DrawLaneDebugVisualization()
+{
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	FVector Loc = GetActorLocation();
+	float Z = Loc.Z + 10.0f; // Slightly above ground
+	float ForwardDist = 1000.0f;
+
+	// Draw Lane Centerlines
+	float Lanes[] = { LANE_LEFT_Y, LANE_CENTER_Y, LANE_RIGHT_Y };
+	FColor LaneColors[] = { FColor::Red, FColor::Green, FColor::Blue };
+	for (int i = 0; i < 3; i++)
+	{
+		DrawDebugLine(World, FVector(Loc.X, Lanes[i], Z), FVector(Loc.X + ForwardDist, Lanes[i], Z), LaneColors[i], false, -1.0f, 0, 2.0f);
+	}
+
+	// Draw Player Progress Marker
+	DrawDebugSphere(World, FVector(Loc.X, CurrentLaneX, Z + 5.0f), 15.0f, 12, FColor::Yellow);
+	
+	// Draw Buffer Boundaries if transitioning
+	if (CurrentLane != TargetLane)
+	{
+		float TargetY = GetLaneXPosition(TargetLane);
+		float BaseScale = BaseLaneTransitionSpeed / 10.0f;
+		float BufferDist = BaseScale * CurrentResponsiveness * 50.0f;
+		
+		bool bCanChange = CanInitiateLaneChange();
+		FColor BufferColor = bCanChange ? FColor::Green : FColor::Red;
+
+		// Draw buffer zones as lines across the lanes
+		DrawDebugLine(World, FVector(Loc.X, TargetY - BufferDist, Z), FVector(Loc.X + 200.0f, TargetY - BufferDist, Z), BufferColor, false, -1.0f, 0, 5.0f);
+		DrawDebugLine(World, FVector(Loc.X, TargetY + BufferDist, Z), FVector(Loc.X + 200.0f, TargetY + BufferDist, Z), BufferColor, false, -1.0f, 0, 5.0f);
+	}
+}
+
 void ARabbitCharacter::UpdateLanePosition(float DeltaTime)
 {
 	float TargetY = GetLaneXPosition(TargetLane);  // Note: GetLaneXPosition returns Y coordinate (naming is historical)
@@ -403,13 +445,14 @@ bool ARabbitCharacter::CanInitiateLaneChange() const
 	}
 
 	// Calculate a dynamic buffer based on turn speed and responsiveness
-	// Faster turn speeds allow for larger buffers (earlier input acceptance)
-	// Default LaneTransitionSpeed is 10.0, Responsiveness is 1.0 -> Buffer = 50.0 units
+	// DECOUPLED: Use BaseLaneTransitionSpeed (default 10.0) as the anchor 
+	// so speed powerups don't expand the buffer.
+	// Default BaseLaneTransitionSpeed is 10.0, Responsiveness is 1.0 -> Buffer = 50.0 units
 	// Lane width is 200.0, so 50.0 is "mostly done" (75% there)
 	float TargetY = GetLaneXPosition(TargetLane);
 	float DistanceToTarget = FMath::Abs(CurrentLaneX - TargetY);
 	
-	float AllowedBuffer = (LaneTransitionSpeed / 10.0f) * LaneChangeResponsiveness * 50.0f;
+	float AllowedBuffer = (BaseLaneTransitionSpeed / 10.0f) * CurrentResponsiveness * 50.0f;
 	
 	return DistanceToTarget <= AllowedBuffer;
 }
@@ -1209,6 +1252,7 @@ void ARabbitCharacter::ResetGASEffects()
 	AttributeSet->SetCoinMultiplier(0.0f);
 	AttributeSet->SetScoreMultiplier(0.0f);
 	AttributeSet->SetLaneTransitionSpeedMultiplier(0.0f);
+	AttributeSet->SetLaneChangeResponsivenessMultiplier(0.0f);
 	AttributeSet->SetMultiJumpHeightMultiplier(0.0f);
 	AttributeSet->SetGravityScaleMultiplier(0.0f);
 	
@@ -1224,6 +1268,7 @@ void ARabbitCharacter::ResetGASEffects()
 	AttributeSet->SetBaseMultiJumpHeight(200.0f);
 	AttributeSet->SetBaseGravityScale(1.0f);
 	AttributeSet->SetBaseLaneTransitionSpeed(BaseLaneTransitionSpeed);
+	AttributeSet->SetBaseLaneChangeResponsiveness(1.0f);
 	AttributeSet->SetBaseMaxJumpCount(1.0f);
 	// BaseLives is set separately in StartGame() based on StartingLives
 	
@@ -1254,6 +1299,10 @@ void ARabbitCharacter::ApplyEffectByTag(FGameplayTag Tag, float Value)
 	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("LaneTransitionSpeedMultiplier"))))
 	{
 		AttributeSet->SetLaneTransitionSpeedMultiplier(AttributeSet->GetLaneTransitionSpeedMultiplier() + Value);
+	}
+	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("LaneChangeResponsivenessMultiplier"))))
+	{
+		AttributeSet->SetLaneChangeResponsivenessMultiplier(AttributeSet->GetLaneChangeResponsivenessMultiplier() + Value);
 	}
 	else if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("BaseMaxJumpCount"))))
 	{

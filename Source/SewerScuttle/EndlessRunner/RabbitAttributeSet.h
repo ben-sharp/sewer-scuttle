@@ -71,6 +71,21 @@ public:
 	FGameplayAttributeData LaneTransitionSpeedMultiplier;
 	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, LaneTransitionSpeedMultiplier)
 
+	// Base Lane Change Responsiveness
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	FGameplayAttributeData BaseLaneChangeResponsiveness;
+	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, BaseLaneChangeResponsiveness)
+
+	// Current Lane Change Responsiveness (calculated from base + modifiers)
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	FGameplayAttributeData CurrentLaneChangeResponsiveness;
+	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, CurrentLaneChangeResponsiveness)
+
+	// Lane Change Responsiveness Multiplier (temporary, stacks additively)
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	FGameplayAttributeData LaneChangeResponsivenessMultiplier;
+	ATTRIBUTE_ACCESSORS(URabbitAttributeSet, LaneChangeResponsivenessMultiplier)
+
 	// Base Multi Jump Height
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	FGameplayAttributeData BaseMultiJumpHeight;
@@ -154,6 +169,7 @@ protected:
 	void UpdateCurrentSpeed();
 	void UpdateCurrentJumpHeight();
 	void UpdateCurrentLaneTransitionSpeed();
+	void UpdateCurrentLaneChangeResponsiveness();
 	void UpdateCurrentMultiJumpHeight();
 	void UpdateCurrentGravityScale();
 	void UpdateCurrentLives();

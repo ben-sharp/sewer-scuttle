@@ -34,6 +34,15 @@ URabbitAttributeSet::URabbitAttributeSet()
 	LaneTransitionSpeedMultiplier.SetBaseValue(0.0f);
 	LaneTransitionSpeedMultiplier.SetCurrentValue(0.0f);
 
+	BaseLaneChangeResponsiveness.SetBaseValue(1.0f);
+	BaseLaneChangeResponsiveness.SetCurrentValue(1.0f);
+
+	CurrentLaneChangeResponsiveness.SetBaseValue(1.0f);
+	CurrentLaneChangeResponsiveness.SetCurrentValue(1.0f);
+
+	LaneChangeResponsivenessMultiplier.SetBaseValue(0.0f);
+	LaneChangeResponsivenessMultiplier.SetCurrentValue(0.0f);
+
 	BaseMultiJumpHeight.SetBaseValue(200.0f);
 	BaseMultiJumpHeight.SetCurrentValue(200.0f);
 
@@ -96,6 +105,12 @@ void URabbitAttributeSet::UpdateCurrentLaneTransitionSpeed()
 {
 	float NewCurrentLaneTransitionSpeed = BaseLaneTransitionSpeed.GetCurrentValue() * (1.0f + LaneTransitionSpeedMultiplier.GetCurrentValue());
 	CurrentLaneTransitionSpeed.SetCurrentValue(NewCurrentLaneTransitionSpeed);
+}
+
+void URabbitAttributeSet::UpdateCurrentLaneChangeResponsiveness()
+{
+	float NewCurrentLaneChangeResponsiveness = BaseLaneChangeResponsiveness.GetCurrentValue() * (1.0f + LaneChangeResponsivenessMultiplier.GetCurrentValue());
+	CurrentLaneChangeResponsiveness.SetCurrentValue(NewCurrentLaneChangeResponsiveness);
 }
 
 void URabbitAttributeSet::UpdateCurrentMultiJumpHeight()
@@ -181,6 +196,10 @@ void URabbitAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribut
 	else if (Attribute == GetBaseLaneTransitionSpeedAttribute() || Attribute == GetLaneTransitionSpeedMultiplierAttribute())
 	{
 		UpdateCurrentLaneTransitionSpeed();
+	}
+	else if (Attribute == GetBaseLaneChangeResponsivenessAttribute() || Attribute == GetLaneChangeResponsivenessMultiplierAttribute())
+	{
+		UpdateCurrentLaneChangeResponsiveness();
 	}
 	else if (Attribute == GetBaseLivesAttribute())
 	{
