@@ -234,6 +234,8 @@ void AEndlessRunnerGameMode::StartGameWithSeed(int32 Seed, const FString& InSeed
 	MaxTrackPieces = InMaxTrackPieces;
 	RunStartTime = FDateTime::Now();
 	
+	GetWorldTimerManager().ClearTimer(GameOverDelayTimerHandle);
+	
 	SeededRandomStream.Initialize(TrackSeed);
 	
 	bSpawnSpecialCollectibles = false;
@@ -451,7 +453,8 @@ void AEndlessRunnerGameMode::EndGame()
 	{
 		if (APlayerController* PlayerController = World->GetFirstPlayerController())
 		{
-			PlayerController->SetPause(true);
+			// Don't pause immediately so we can see the ragdoll fly in the background
+			// PlayerController->SetPause(true); 
 			PlayerController->bShowMouseCursor = true;
 			PlayerController->SetInputMode(FInputModeUIOnly());
 			if (AEndlessRunnerHUD* HUD = Cast<AEndlessRunnerHUD>(PlayerController->GetHUD()))
@@ -518,7 +521,9 @@ void AEndlessRunnerGameMode::OnPlayerHitObstacle(int32 LivesLost, bool bInstantD
 		}
 		if (Player->GetAttributeSet()) Player->GetAttributeSet()->SetBaseLives(0.0f);
 		Lives = 0;
-		EndGame();
+		
+		// Delay Game Over to see ragdoll fly
+		GetWorldTimerManager().SetTimer(GameOverDelayTimerHandle, this, &AEndlessRunnerGameMode::EndGame, GameOverDelay, false);
 		return;
 	}
 
@@ -540,7 +545,9 @@ void AEndlessRunnerGameMode::OnPlayerHitObstacle(int32 LivesLost, bool bInstantD
 			Player->EnableRagdollDeath(LaunchVelocity);
 			if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) PC->DisableInput(PC);
 		}
-		EndGame();
+		
+		// Delay Game Over to see ragdoll fly
+		GetWorldTimerManager().SetTimer(GameOverDelayTimerHandle, this, &AEndlessRunnerGameMode::EndGame, GameOverDelay, false);
 	}
 }
 

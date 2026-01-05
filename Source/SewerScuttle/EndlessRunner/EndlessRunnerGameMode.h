@@ -387,6 +387,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game", meta = (ClampMin = "0.0", ClampMax = "10.0"))
 	float RespawnDelay = 1.0f;
 
+	/** Game over delay in seconds (to see ragdoll fly) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game", meta = (ClampMin = "0.0", ClampMax = "10.0"))
+	float GameOverDelay = 2.5f;
+
+	/** Timer handle for game over delay */
+	FTimerHandle GameOverDelayTimerHandle;
+
 	/** Player spawn location (cached for respawn) */
 	FVector PlayerSpawnLocation;
 
