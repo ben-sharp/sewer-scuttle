@@ -23,6 +23,9 @@ public:
 	void Register(const FString& Name, const FString& Email, const FString& Password, FOnAuthSuccess OnSuccess, FOnAuthError OnError);
 
 	UFUNCTION(BlueprintCallable, Category = "Auth")
+	void RestoreSession();
+
+	UFUNCTION(BlueprintCallable, Category = "Auth")
 	void Logout();
 
 	UFUNCTION(BlueprintPure, Category = "Auth")
@@ -34,5 +37,8 @@ public:
 private:
 	FString AuthToken;
 	FAuthUserData CurrentUser;
+
+	UPROPERTY()
+	class UHttpClient* HttpClient;
 };
 

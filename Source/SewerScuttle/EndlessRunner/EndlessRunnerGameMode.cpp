@@ -177,9 +177,15 @@ void AEndlessRunnerGameMode::SetGameState(EGameState NewState)
 
 void AEndlessRunnerGameMode::StartGame()
 {
-	UE_LOG(LogTemp, Warning, TEXT("GameMode: StartGame() called - Current state: %d"), (int32)RunnerGameState);
+	UE_LOG(LogTemp, Warning, TEXT("GameMode: StartGame() called - Requesting NEW seed for class: %s"), *FPlayerClassData::PlayerClassToString(SelectedClass));
 	bIsEndlessMode = false;
 	bTrackSequenceLoaded = false;
+	
+	// Reset run-specific data immediately
+	SeedId = TEXT("");
+	TrackSeed = 0;
+	CurrentTier = 1;
+	SelectedTrackIndices.Empty();
 	
 	if (!WebServerInterface)
 	{
@@ -508,11 +514,15 @@ void AEndlessRunnerGameMode::SetupEnhancedInput()
 void AEndlessRunnerGameMode::OnPlayerHitObstacle(int32 LivesLost, bool bInstantDeath)
 {
 	if (RunnerGameState != EGameState::Playing) return;
+	
+	ObstaclesHit++;
+	
 	ARabbitCharacter* Player = GetCachedPlayer();
 	if (!Player) return;
 
 	if (bInstantDeath)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("GameMode: INSTANT DEATH triggered."));
 		if (Player)
 		{
 			FVector LaunchVelocity = Player->GetActorForwardVector() * 2000.0f + FVector(0.0f, 0.0f, 2500.0f);
@@ -528,26 +538,50 @@ void AEndlessRunnerGameMode::OnPlayerHitObstacle(int32 LivesLost, bool bInstantD
 	}
 
 	FPlayerClassData ClassData = GetClassData(SelectedClass);
-	float ActualLivesLost = static_cast<float>(LivesLost) * (ClassData.DamageReduction < 1.0f ? ClassData.DamageReduction : 1.0f);
-	int32 RoundedLivesLost = FMath::Max(1, FMath::RoundToInt(ActualLivesLost));
+	float DamageReduction = (ClassData.DamageReduction < 1.0f ? ClassData.DamageReduction : 1.0f);
+	float ActualLivesLostFloat = static_cast<float>(LivesLost) * DamageReduction;
+	int32 RoundedLivesLost = FMath::RoundToInt(ActualLivesLostFloat);
+	
+	// Ensure at least 1 life is lost unless damage reduction is exactly 0
+	if (RoundedLivesLost < 1 && DamageReduction > 0.0f)
+	{
+		RoundedLivesLost = 1;
+	}
+
 	int32 CurrentLives = GetLives();
-	bool bWasOnLastLegs = (CurrentLives <= 0);
 	int32 NewLives = FMath::Max(0, CurrentLives - RoundedLivesLost);
 	
-	if (Player->GetAttributeSet()) Player->GetAttributeSet()->SetBaseLives(static_cast<float>(NewLives));
+	UE_LOG(LogTemp, Warning, TEXT("GameMode: Obstacle Hit! Class: %s, Reduc: %.2f, Raw: %d, Calc: %.2f, Final: %d, Current: %d, New: %d"), 
+		*FPlayerClassData::PlayerClassToString(SelectedClass), DamageReduction, LivesLost, ActualLivesLostFloat, RoundedLivesLost, CurrentLives, NewLives);
+
+	if (Player->GetAttributeSet()) 
+	{
+		Player->GetAttributeSet()->SetBaseLives(static_cast<float>(NewLives));
+		Player->GetAttributeSet()->SetCurrentLives(static_cast<float>(NewLives)); // Ensure CurrentLives is also updated immediately
+		
+		UE_LOG(LogTemp, Warning, TEXT("GameMode: Set Lives to %.1f. CurrentLives now: %.1f"), 
+			static_cast<float>(NewLives), Player->GetAttributeSet()->GetCurrentLives());
+	}
 	Lives = NewLives;
 
-	if (bWasOnLastLegs)
+	if (NewLives <= 0)
 	{
-		if (Player)
+		UE_LOG(LogTemp, Warning, TEXT("GameMode: PLAYER ON LAST LEGS or DEAD."));
+		// If they were already at 0 and hit again, they definitely die
+		// Or if this hit took them to 0, they are on Last Legs.
+		// Wait, the original logic was: hit at 0 -> die.
+		if (CurrentLives <= 0)
 		{
-			FVector LaunchVelocity = Player->GetActorForwardVector() * 2000.0f + FVector(0.0f, 0.0f, 2500.0f);
-			Player->EnableRagdollDeath(LaunchVelocity);
-			if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) PC->DisableInput(PC);
+			if (Player)
+			{
+				FVector LaunchVelocity = Player->GetActorForwardVector() * 2000.0f + FVector(0.0f, 0.0f, 2500.0f);
+				Player->EnableRagdollDeath(LaunchVelocity);
+				if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) PC->DisableInput(PC);
+			}
+			
+			// Delay Game Over to see ragdoll fly
+			GetWorldTimerManager().SetTimer(GameOverDelayTimerHandle, this, &AEndlessRunnerGameMode::EndGame, GameOverDelay, false);
 		}
-		
-		// Delay Game Over to see ragdoll fly
-		GetWorldTimerManager().SetTimer(GameOverDelayTimerHandle, this, &AEndlessRunnerGameMode::EndGame, GameOverDelay, false);
 	}
 }
 
@@ -721,15 +755,41 @@ void AEndlessRunnerGameMode::ApplyClassPerks(ARabbitCharacter* Player)
 {
 	if (!Player) return;
 	FPlayerClassData D = GetClassData(SelectedClass);
-	if (D.ExtraLives > 0) { float L = static_cast<float>(StartingLives + D.ExtraLives); if (Player->GetAttributeSet()) Player->GetAttributeSet()->SetBaseLives(L); Lives = StartingLives + D.ExtraLives; }
+	
+	// Extra Lives
+	float L = static_cast<float>(StartingLives + D.ExtraLives);
+	if (Player->GetAttributeSet()) Player->GetAttributeSet()->SetBaseLives(L);
+	Lives = StartingLives + D.ExtraLives;
+
 	Player->SetMaxJumpCount(D.MaxJumpCount);
 	if (URabbitJumpComponent* J = Player->GetJumpComponent()) J->ResetJumpCount();
-	if (D.CapsuleHalfHeight > 0.0f) if (UCapsuleComponent* C = Player->GetCapsuleComponent()) Player->SetCapsuleSize(D.CapsuleHalfHeight, C->GetUnscaledCapsuleRadius());
-	if (D.bNeverNeedsCrouch) Player->SetNeverNeedsCrouch(true);
-	if (D.bCanBreakObstacles) Player->SetCanBreakObstacles(true);
-	if (D.bSpawnsSpecialCollectibles) bSpawnSpecialCollectibles = true;
-	if (D.bHasStartingMagnet && D.StartingMagnetDuration > 0.0f) { bMagnetActive = true; GetWorldTimerManager().SetTimer(MagnetTimerHandle, this, &AEndlessRunnerGameMode::ClearMagnet, D.StartingMagnetDuration, false); }
-	if (D.BaseSpeedMultiplier != 1.0f) Player->SetForwardSpeed(Player->GetForwardSpeed() * D.BaseSpeedMultiplier);
+	
+	if (D.CapsuleHalfHeight > 0.0f) 
+	{
+		if (UCapsuleComponent* C = Player->GetCapsuleComponent()) Player->SetCapsuleSize(D.CapsuleHalfHeight, C->GetUnscaledCapsuleRadius());
+	}
+	else
+	{
+		// Reset to default rabbit height
+		if (UCapsuleComponent* C = Player->GetCapsuleComponent()) Player->SetCapsuleSize(88.0f, C->GetUnscaledCapsuleRadius());
+	}
+
+	Player->SetNeverNeedsCrouch(D.bNeverNeedsCrouch);
+	Player->SetCanBreakObstacles(D.bCanBreakObstacles);
+	bSpawnSpecialCollectibles = D.bSpawnsSpecialCollectibles;
+	
+	if (D.bHasStartingMagnet && D.StartingMagnetDuration > 0.0f) 
+	{
+		bMagnetActive = true; 
+		GetWorldTimerManager().SetTimer(MagnetTimerHandle, this, &AEndlessRunnerGameMode::ClearMagnet, D.StartingMagnetDuration, false); 
+	}
+	else
+	{
+		ClearMagnet();
+	}
+
+	// Base speed
+	Player->SetForwardSpeed(1000.0f * D.BaseSpeedMultiplier);
 	
 	// Sync responsiveness for dynamic lane change throttle
 	Player->SetLaneChangeResponsiveness(D.LaneChangeResponsiveness);

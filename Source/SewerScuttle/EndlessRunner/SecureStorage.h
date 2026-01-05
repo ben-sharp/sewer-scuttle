@@ -17,5 +17,8 @@ public:
 	void Save(const FString& Key, const FString& Value);
 	FString Load(const FString& Key) const;
 	void Remove(const FString& Key);
+
+private:
+	FString GetStoragePath() const;
 };
 

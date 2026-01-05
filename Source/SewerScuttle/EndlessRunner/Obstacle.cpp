@@ -79,7 +79,7 @@ void AObstacle::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Othe
 		if (bIsBreakable && Player->GetCanBreakObstacles())
 		{
 			// Enforcer breaks through breakable obstacle
-			UE_LOG(LogTemp, Warning, TEXT("Obstacle: Enforcer breaking through breakable obstacle '%s'"), *GetName());
+			UE_LOG(LogTemp, Warning, TEXT("Obstacle: ENFORCER BREAKING breakable obstacle '%s'"), *GetName());
 			
 			// Play break effect if available
 			if (BreakEffect && GetWorld())
@@ -91,6 +91,13 @@ void AObstacle::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Othe
 			// Destroy obstacle (no damage to player)
 			Destroy();
 			return;
+		}
+
+		// LOG for non-breakable or non-enforcer
+		if (bIsBreakable)
+		{
+			UE_LOG(LogTemp, Log, TEXT("Obstacle: Breakable obstacle '%s' hit but player cannot break (Enforcer: %d)"), 
+				*GetName(), Player->GetCanBreakObstacles() ? 1 : 0);
 		}
 
 		// Check if player can avoid this obstacle

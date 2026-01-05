@@ -12,7 +12,7 @@
 
 void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, float FinalDistance, float FinalTime)
 {
-	OnRetryClicked = InArgs._OnRetryClicked;
+	OnNewRunClicked = InArgs._OnNewRunClicked;
 	OnChangeClassClicked = InArgs._OnChangeClassClicked;
 	OnExitClicked = InArgs._OnExitClicked;
 
@@ -85,11 +85,11 @@ void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, floa
 			.Padding(FMargin(0, 0, 0, 15))
 			[
 				SNew(SButton)
-				.OnClicked(this, &SGameOverWidget::OnRetryButtonClicked)
+				.OnClicked(this, &SGameOverWidget::OnNewRunButtonClicked)
 				.ContentPadding(FMargin(40, 15))
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(TEXT("RETRY")))
+					.Text(FText::FromString(TEXT("NEW RUN")))
 					.Font(FCoreStyle::GetDefaultFontStyle("Bold", 24))
 					.Justification(ETextJustify::Center)
 				]
@@ -125,11 +125,11 @@ void SGameOverWidget::Construct(const FArguments& InArgs, int32 FinalScore, floa
 	];
 }
 
-FReply SGameOverWidget::OnRetryButtonClicked()
+FReply SGameOverWidget::OnNewRunButtonClicked()
 {
-	if (OnRetryClicked.IsBound())
+	if (OnNewRunClicked.IsBound())
 	{
-		OnRetryClicked.Execute();
+		OnNewRunClicked.Execute();
 	}
 	return FReply::Handled();
 }

@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "PowerUp.h"
+#include "EndlessRunnerGameMode.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "RabbitCharacter.h"
@@ -70,6 +71,15 @@ void APowerUp::Collect(ARabbitCharacter* Player)
 
 	// Apply GAS effects
 	ApplyGASPowerUp(Player);
+
+	// Increment power-ups used in GameMode
+	if (UWorld* World = GetWorld())
+	{
+		if (AEndlessRunnerGameMode* GM = Cast<AEndlessRunnerGameMode>(World->GetAuthGameMode()))
+		{
+			GM->OnPowerUpUsed();
+		}
+	}
 
 	// Call blueprint event
 	OnPowerUpCollected(Player);

@@ -60,7 +60,8 @@ void UWebServerInterface::RequestRunSeed(int32 MaxDistance, EPlayerClass PlayerC
 
 void UWebServerInterface::OnSeedResponse(int32 ResponseCode, const FString& ResponseBody)
 {
-	UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: Seed response received - Code: %d, Body: %s"), ResponseCode, *ResponseBody);
+	UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: Seed response received - Code: %d"), ResponseCode);
+	UE_LOG(LogTemp, Log, TEXT("WebServerInterface: Body (start): %s"), *ResponseBody.Left(256));
 
 	if (ResponseCode >= 200 && ResponseCode < 300)
 	{
@@ -75,6 +76,8 @@ void UWebServerInterface::OnSeedResponse(int32 ResponseCode, const FString& Resp
             SelectionData.ContentVersion = JsonObject->GetStringField(TEXT("content_version"));
 			SelectionData.Tier = JsonObject->GetIntegerField(TEXT("tier"));
 
+			UE_LOG(LogTemp, Warning, TEXT("WebServerInterface: Received SeedId: %s, Seed: %d"), *SelectionData.SeedId, SelectionData.Seed);
+            
 			const TArray<TSharedPtr<FJsonValue>>* TracksArray;
 			if (JsonObject->TryGetArrayField(TEXT("tracks"), TracksArray))
 			{

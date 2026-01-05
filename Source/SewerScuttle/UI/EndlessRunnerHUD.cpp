@@ -188,7 +188,8 @@ void AEndlessRunnerHUD::ShowGameOverScreen()
 		}
 		
 		SAssignNew(GameOverWidget, SGameOverWidget, Score, Distance, Time)
-			.OnRetryClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::OnPlayClicked))
+			.OnNewRunClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::OnNewRunClicked))
+			.OnChangeClassClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::ShowClassSelection))
 			.OnExitClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::ShowMainMenu));
 
 		GEngine->GameViewport->AddViewportWidgetContent(SNew(SWeakWidget).PossiblyNullContent(GameOverWidget.ToSharedRef()));
@@ -276,7 +277,7 @@ void AEndlessRunnerHUD::TogglePause()
 
 			SAssignNew(PauseWidget, SPauseWidget, Seed)
 				.OnResumeClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::TogglePause))
-				.OnRetryClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::OnPlayClicked))
+				.OnNewRunClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::OnNewRunClicked))
 				.OnMainMenuClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::ShowMainMenu));
 
 			GEngine->GameViewport->AddViewportWidgetContent(SNew(SWeakWidget).PossiblyNullContent(PauseWidget.ToSharedRef()));
@@ -300,6 +301,17 @@ void AEndlessRunnerHUD::OnTrackSelected(int32 TrackIndex)
 void AEndlessRunnerHUD::OnPlayClicked()
 {
 	ShowClassSelection();
+}
+
+void AEndlessRunnerHUD::OnNewRunClicked()
+{
+	UE_LOG(LogTemp, Warning, TEXT("HUD: New Run clicked."));
+	HideAllWidgets();
+	if (AEndlessRunnerGameMode* GM = Cast<AEndlessRunnerGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		// Explicitly tell GameMode to start a FRESH run with current class
+		GM->StartGame();
+	}
 }
 
 void AEndlessRunnerHUD::OnClassSelected(EPlayerClass SelectedClass)

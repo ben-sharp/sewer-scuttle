@@ -6,13 +6,13 @@
 #include "Widgets/SCompoundWidget.h"
 
 DECLARE_DELEGATE(FOnResumeClicked);
-DECLARE_DELEGATE(FOnRetryClicked);
+DECLARE_DELEGATE(FOnNewRunClicked);
 DECLARE_DELEGATE(FOnSettingsClicked);
 DECLARE_DELEGATE(FOnMainMenuClicked);
 
 /**
  * Slate widget for pause screen
- * Shows seed and provides Resume/Retry/Settings/Main Menu options
+ * Shows seed and provides Resume/New Run/Settings/Main Menu options
  */
 class SEWERSCUTTLE_API SPauseWidget : public SCompoundWidget
 {
@@ -20,7 +20,7 @@ public:
 	SLATE_BEGIN_ARGS(SPauseWidget)
 	{}
 		SLATE_EVENT(FSimpleDelegate, OnResumeClicked)
-		SLATE_EVENT(FSimpleDelegate, OnRetryClicked)
+		SLATE_EVENT(FSimpleDelegate, OnNewRunClicked)
 		SLATE_EVENT(FSimpleDelegate, OnSettingsClicked)
 		SLATE_EVENT(FSimpleDelegate, OnMainMenuClicked)
 	SLATE_END_ARGS()
@@ -29,7 +29,7 @@ public:
 
 	/** Delegates */
 	FSimpleDelegate OnResumeClicked;
-	FSimpleDelegate OnRetryClicked;
+	FSimpleDelegate OnNewRunClicked;
 	FSimpleDelegate OnSettingsClicked;
 	FSimpleDelegate OnMainMenuClicked;
 
@@ -40,8 +40,8 @@ private:
 	/** Resume button callback */
 	FReply OnResumeButtonClicked();
 
-	/** Retry button callback */
-	FReply OnRetryButtonClicked();
+	/** New Run button callback */
+	FReply OnNewRunButtonClicked();
 
 	/** Settings button callback */
 	FReply OnSettingsButtonClicked();

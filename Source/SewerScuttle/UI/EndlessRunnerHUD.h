@@ -100,6 +100,7 @@ protected:
 
 	/** Handle menu buttons */
 	void OnPlayClicked();
+	void OnNewRunClicked();
 	void OnClassSelected(EPlayerClass SelectedClass);
 	void OnShopClicked();
 	void OnLeaderboardClicked();

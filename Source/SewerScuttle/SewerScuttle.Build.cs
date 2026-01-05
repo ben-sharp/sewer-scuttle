@@ -20,7 +20,8 @@ public class SewerScuttle : ModuleRules
 			"Json",
 			"JsonUtilities",
 			"GameplayAbilities",
-			"GameplayTags"
+			"GameplayTags",
+			"DeveloperSettings"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });

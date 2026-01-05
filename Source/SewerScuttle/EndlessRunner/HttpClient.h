@@ -23,6 +23,8 @@ class SEWERSCUTTLE_API UHttpClient : public UObject
 public:
 	void Initialize();
 
+	void SetAuthToken(const FString& Token) { AuthToken = Token; }
+
 	void Get(const FString& Endpoint, FOnHttpResponse OnSuccess, FOnHttpError OnError);
 	void Post(const FString& Endpoint, const FString& Body, FOnHttpResponse OnSuccess, FOnHttpError OnError);
 
@@ -30,5 +32,6 @@ private:
 	void OnProcessRequestComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful, FOnHttpResponse OnSuccess, FOnHttpError OnError);
 
 	FString GetBaseUrl() const;
+	FString AuthToken;
 };
 

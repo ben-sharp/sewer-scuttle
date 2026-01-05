@@ -5,20 +5,20 @@
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
 
-DECLARE_DELEGATE(FOnRetryClicked);
+DECLARE_DELEGATE(FOnNewRunClicked);
 DECLARE_DELEGATE(FOnChangeClassClicked);
 DECLARE_DELEGATE(FOnExitClicked);
 
 /**
  * Slate widget for game over screen
- * Shows final score and provides Retry/Exit options
+ * Shows final score and provides New Run/Exit options
  */
 class SEWERSCUTTLE_API SGameOverWidget : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SGameOverWidget)
 	{}
-		SLATE_EVENT(FSimpleDelegate, OnRetryClicked)
+		SLATE_EVENT(FSimpleDelegate, OnNewRunClicked)
 		SLATE_EVENT(FSimpleDelegate, OnChangeClassClicked)
 		SLATE_EVENT(FSimpleDelegate, OnExitClicked)
 	SLATE_END_ARGS()
@@ -26,7 +26,7 @@ public:
 	void Construct(const FArguments& InArgs, int32 FinalScore, float FinalDistance, float FinalTime);
 
 	/** Delegates */
-	FSimpleDelegate OnRetryClicked;
+	FSimpleDelegate OnNewRunClicked;
 	FSimpleDelegate OnChangeClassClicked;
 	FSimpleDelegate OnExitClicked;
 
@@ -40,8 +40,8 @@ private:
 	/** Final time text */
 	TSharedPtr<class STextBlock> FinalTimeText;
 
-	/** Retry button callback */
-	FReply OnRetryButtonClicked();
+	/** New Run button callback */
+	FReply OnNewRunButtonClicked();
 
 	/** Change class button callback */
 	FReply OnChangeClassButtonClicked();

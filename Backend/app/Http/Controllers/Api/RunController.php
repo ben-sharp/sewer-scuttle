@@ -127,6 +127,20 @@ class RunController extends Controller
             if ($run->score > $player->best_score) {
                 $player->update(['best_score' => $run->score]);
             }
+
+            // Create leaderboard entries if run is complete
+            if ($run->is_complete) {
+                $timeframes = ['daily', 'weekly', 'all-time'];
+                foreach ($timeframes as $timeframe) {
+                    \App\Models\LeaderboardEntry::create([
+                        'player_id' => $player->id,
+                        'score' => $run->score,
+                        'player_class' => $run->player_class,
+                        'timeframe' => $timeframe,
+                        'achieved_at' => now(),
+                    ]);
+                }
+            }
         }
 
         return response()->json([

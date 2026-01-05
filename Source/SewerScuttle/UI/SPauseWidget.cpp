@@ -12,7 +12,7 @@
 void SPauseWidget::Construct(const FArguments& InArgs, int32 Seed)
 {
 	OnResumeClicked = InArgs._OnResumeClicked;
-	OnRetryClicked = InArgs._OnRetryClicked;
+	OnNewRunClicked = InArgs._OnNewRunClicked;
 	OnSettingsClicked = InArgs._OnSettingsClicked;
 	OnMainMenuClicked = InArgs._OnMainMenuClicked;
 
@@ -75,12 +75,12 @@ void SPauseWidget::Construct(const FArguments& InArgs, int32 Seed)
 			.Padding(FMargin(0, 0, 0, 15))
 			[
 				SNew(SButton)
-				.Text(FText::FromString(TEXT("RETRY")))
-				.OnClicked(this, &SPauseWidget::OnRetryButtonClicked)
+				.Text(FText::FromString(TEXT("NEW RUN")))
+				.OnClicked(this, &SPauseWidget::OnNewRunButtonClicked)
 				.ContentPadding(FMargin(40, 15))
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(TEXT("RETRY")))
+					.Text(FText::FromString(TEXT("NEW RUN")))
 					.Font(FCoreStyle::GetDefaultFontStyle("Bold", 24))
 					.Justification(ETextJustify::Center)
 				]
@@ -127,11 +127,11 @@ FReply SPauseWidget::OnResumeButtonClicked()
 	return FReply::Handled();
 }
 
-FReply SPauseWidget::OnRetryButtonClicked()
+FReply SPauseWidget::OnNewRunButtonClicked()
 {
-	if (OnRetryClicked.IsBound())
+	if (OnNewRunClicked.IsBound())
 	{
-		OnRetryClicked.Execute();
+		OnNewRunClicked.Execute();
 	}
 	return FReply::Handled();
 }
