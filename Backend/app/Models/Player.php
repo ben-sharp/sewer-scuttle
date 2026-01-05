@@ -13,6 +13,7 @@ class Player extends Model
 
     protected $fillable = [
         'user_id',
+        'device_id',
         'username',
         'display_name',
         'player_class',

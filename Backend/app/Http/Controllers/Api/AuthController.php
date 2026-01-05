@@ -22,22 +22,43 @@ class AuthController extends Controller
             'password' => 'required|string|min:8',
             'username' => 'required|string|max:255|unique:players',
             'display_name' => 'required|string|max:255',
+            'device_id' => 'nullable|string',
         ]);
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
+            'device_id' => $validated['device_id'],
         ]);
 
-        $player = Player::create([
-            'user_id' => $user->id,
-            'username' => $validated['username'],
-            'display_name' => $validated['display_name'],
-        ]);
+        // Look for existing anonymous player by device_id
+        $player = null;
+        if ($validated['device_id']) {
+            $player = Player::where('device_id', $validated['device_id'])
+                ->whereNull('user_id')
+                ->first();
+        }
 
-        // Initialize default currency
-        $player->addCurrency('coins', 0);
+        if ($player) {
+            // Promote anonymous player
+            $player->update([
+                'user_id' => $user->id,
+                'username' => $validated['username'],
+                'display_name' => $validated['display_name'],
+            ]);
+        } else {
+            // Create new player
+            $player = Player::create([
+                'user_id' => $user->id,
+                'username' => $validated['username'],
+                'display_name' => $validated['display_name'],
+                'device_id' => $validated['device_id'],
+            ]);
+
+            // Initialize default currency
+            $player->addCurrency('coins', 0);
+        }
 
         $token = $user->createToken('auth-token')->plainTextToken;
 
@@ -100,7 +121,7 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'device_id' => 'required|string',
-            'username' => 'required|string|max:255|unique:players',
+            'username' => 'required|string|max:255|unique:players,username',
             'display_name' => 'required|string|max:255',
         ]);
 
@@ -114,13 +135,29 @@ class AuthController extends Controller
         );
 
         if (! $user->player) {
-            $player = Player::create([
-                'user_id' => $user->id,
-                'username' => $validated['username'],
-                'display_name' => $validated['display_name'],
-            ]);
+            // Look for existing anonymous player by device_id
+            $player = Player::where('device_id', $validated['device_id'])
+                ->whereNull('user_id')
+                ->first();
 
-            $player->addCurrency('coins', 0);
+            if ($player) {
+                // Promote anonymous player
+                $player->update([
+                    'user_id' => $user->id,
+                    'username' => $validated['username'],
+                    'display_name' => $validated['display_name'],
+                ]);
+            } else {
+                // Create new player
+                $player = Player::create([
+                    'user_id' => $user->id,
+                    'username' => $validated['username'],
+                    'display_name' => $validated['display_name'],
+                    'device_id' => $validated['device_id'],
+                ]);
+
+                $player->addCurrency('coins', 0);
+            }
         }
 
         $token = $user->createToken('device-token')->plainTextToken;

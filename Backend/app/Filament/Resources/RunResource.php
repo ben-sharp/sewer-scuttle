@@ -22,6 +22,7 @@ class RunResource extends Resource
         return $form
             ->components([
                 Forms\Components\TextInput::make('seed_id')->required(),
+                Forms\Components\TextInput::make('player_class'),
                 Forms\Components\Select::make('player_id')->relationship('player', 'username'),
                 Forms\Components\TextInput::make('device_id'),
                 Forms\Components\TextInput::make('score')->numeric()->required(),
@@ -38,6 +39,7 @@ class RunResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('player.username')->label('Player'),
+                Tables\Columns\TextColumn::make('player_class')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('score')->numeric()->sortable(),
                 Tables\Columns\TextColumn::make('distance')->numeric()->sortable(),
                 Tables\Columns\IconColumn::make('is_complete')->boolean(),
@@ -45,6 +47,16 @@ class RunResource extends Resource
                 Tables\Columns\IconColumn::make('is_suspicious')->boolean(),
             ])
             ->filters([
+                Tables\Filters\SelectFilter::make('player_class')
+                    ->options([
+                        'Rabbit' => 'Rabbit',
+                        'Vanilla' => 'Vanilla',
+                        'Bear' => 'Bear',
+                        'Fox' => 'Fox',
+                        'Wolf' => 'Wolf',
+                        'Boar' => 'Boar',
+                        'Deer' => 'Deer',
+                    ]),
                 Tables\Filters\Filter::make('complete')->query(fn ($query) => $query->where('is_complete', true)),
                 Tables\Filters\Filter::make('endless')->query(fn ($query) => $query->where('is_endless', true)),
                 Tables\Filters\Filter::make('suspicious')->query(fn ($query) => $query->where('is_suspicious', true)),

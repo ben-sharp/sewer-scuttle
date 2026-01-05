@@ -14,6 +14,7 @@ class Run extends Model
     protected $fillable = [
         'player_id',
         'device_id',
+        'player_class',
         'seed_id',
         'score',
         'distance',

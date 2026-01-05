@@ -453,12 +453,13 @@ void UWebServerInterface::OnTrackSelectionResponse(int32 ResponseCode, const FSt
 void UWebServerInterface::SubmitRun(const FString& SeedId, int32 Score, int32 Distance, int32 DurationSeconds,
 	int32 CoinsCollected, int32 ObstaclesHit, int32 PowerupsUsed, int32 TrackPiecesSpawned,
 	const FString& StartedAt, const TArray<int32>& SelectedTracks, bool bIsComplete, bool bIsEndless,
-	const TArray<FString>& PieceSequence)
+	const TArray<FString>& PieceSequence, const FString& PlayerClass)
 {
 	if (!HttpClient) Initialize();
 
 	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
 	JsonObject->SetStringField(TEXT("seed_id"), SeedId);
+	JsonObject->SetStringField(TEXT("player_class"), PlayerClass);
 	JsonObject->SetNumberField(TEXT("score"), Score);
 	JsonObject->SetNumberField(TEXT("distance"), Distance);
 	JsonObject->SetNumberField(TEXT("duration_seconds"), DurationSeconds);

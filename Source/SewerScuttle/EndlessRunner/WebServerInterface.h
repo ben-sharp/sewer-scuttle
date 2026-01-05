@@ -197,7 +197,7 @@ public:
 	void SubmitRun(const FString& SeedId, int32 Score, int32 Distance, int32 DurationSeconds,
 		int32 CoinsCollected, int32 ObstaclesHit, int32 PowerupsUsed, int32 TrackPiecesSpawned,
 		const FString& StartedAt, const TArray<int32>& SelectedTracks, bool bIsComplete, bool bIsEndless,
-		const TArray<FString>& PieceSequence);
+		const TArray<FString>& PieceSequence, const FString& PlayerClass);
 
 	/** Select a track for the current tier */
 	UFUNCTION(BlueprintCallable, Category = "Web Server")

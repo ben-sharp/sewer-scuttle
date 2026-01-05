@@ -445,7 +445,7 @@ void AEndlessRunnerGameMode::EndGame()
 
 		WebServerInterface->SubmitRun(
 			SeedId, Score, DistanceMeters, DurationSeconds, RunCurrency, ObstaclesHit, PowerupsUsed, TrackPiecesSpawned,
-			StartedAtStr, SelectedTrackIndices, false, bIsEndlessMode, ActualSequence
+			StartedAtStr, SelectedTrackIndices, false, bIsEndlessMode, ActualSequence, FPlayerClassData::PlayerClassToString(SelectedClass)
 		);
 	}
 	
@@ -979,7 +979,7 @@ void AEndlessRunnerGameMode::CompleteRun()
 			SeedId, Score, FMath::RoundToInt(GetDistanceTraveled()), FMath::RoundToInt(GameTime), 
 			RunCurrency, ObstaclesHit, PowerupsUsed, 
 			TrackGenerator ? TrackGenerator->GetTotalTrackPiecesSpawned() : 0, 
-			RunStartTime.ToIso8601(), SelectedTrackIndices, true, false, PieceIds
+			RunStartTime.ToIso8601(), SelectedTrackIndices, true, false, PieceIds, FPlayerClassData::PlayerClassToString(SelectedClass)
 		); 
 	}
 	SetGameState(EGameState::GameOver); 
