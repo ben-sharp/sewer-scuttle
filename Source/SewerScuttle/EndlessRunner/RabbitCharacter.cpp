@@ -185,6 +185,17 @@ void ARabbitCharacter::Tick(float DeltaTime)
 		UpdateAutopilot(DeltaTime);
 	}
 
+	// Update recording sync
+	if (bIsRecording)
+	{
+		float CurrentTime = GetWorld()->GetTimeSeconds();
+		if (CurrentTime - LastSyncTime >= SyncInterval)
+		{
+			RecordEvent(EReplayEventType::PositionSync, GetActorLocation());
+			LastSyncTime = CurrentTime;
+		}
+	}
+
 	// Update lane position smoothly
 	UpdateLanePosition(DeltaTime);
 
@@ -304,6 +315,11 @@ void ARabbitCharacter::SetupEnhancedInput()
 
 void ARabbitCharacter::MoveLeft()
 {
+	if (bIsRecording)
+	{
+		RecordEvent(EReplayEventType::MoveLeft);
+	}
+
 	// Dynamic throttle check
 	if (!CanInitiateLaneChange())
 	{
@@ -324,6 +340,11 @@ void ARabbitCharacter::MoveLeft()
 
 void ARabbitCharacter::MoveRight()
 {
+	if (bIsRecording)
+	{
+		RecordEvent(EReplayEventType::MoveRight);
+	}
+
 	// Dynamic throttle check
 	if (!CanInitiateLaneChange())
 	{
@@ -363,6 +384,11 @@ void ARabbitCharacter::Jump()
 
 void ARabbitCharacter::Slide()
 {
+	if (bIsRecording)
+	{
+		RecordEvent(EReplayEventType::Slide);
+	}
+
 	if (SlideComponent)
 	{
 		SlideComponent->StartSlide();
@@ -371,6 +397,11 @@ void ARabbitCharacter::Slide()
 
 void ARabbitCharacter::StopSlide()
 {
+	if (bIsRecording)
+	{
+		RecordEvent(EReplayEventType::SlideReleased);
+	}
+
 	if (SlideComponent)
 	{
 		SlideComponent->StopSlide();
@@ -493,6 +524,11 @@ void ARabbitCharacter::OnJump(const FInputActionValue& Value)
 {
 	if (!bAutopilotActive)
 	{
+		if (bIsRecording)
+		{
+			RecordEvent(EReplayEventType::Jump);
+		}
+
 		// Use the jump component to perform jump (handles multi-jump logic internally)
 		if (JumpComponent)
 		{
@@ -1334,3 +1370,32 @@ void ARabbitCharacter::ApplyEffectByTag(FGameplayTag Tag, float Value)
 	}
 }
 
+void ARabbitCharacter::StartRecording()
+{
+	bIsRecording = true;
+	ReplayBuffer.Empty();
+	RecordingStartTime = GetWorld()->GetTimeSeconds();
+	LastSyncTime = RecordingStartTime;
+	
+	// Record initial position
+	RecordEvent(EReplayEventType::PositionSync, GetActorLocation());
+	
+	UE_LOG(LogTemp, Warning, TEXT("RabbitCharacter: Started recording replay"));
+}
+
+void ARabbitCharacter::StopRecording()
+{
+	bIsRecording = false;
+	UE_LOG(LogTemp, Warning, TEXT("RabbitCharacter: Stopped recording replay. Total events: %d"), ReplayBuffer.Num());
+}
+
+void ARabbitCharacter::RecordEvent(EReplayEventType EventType, FVector Position)
+{
+	if (!bIsRecording) return;
+
+	FReplayEvent Event;
+	Event.Timestamp = GetWorld()->GetTimeSeconds() - RecordingStartTime;
+	Event.EventType = EventType;
+	Event.Position = Position;
+	ReplayBuffer.Add(Event);
+}

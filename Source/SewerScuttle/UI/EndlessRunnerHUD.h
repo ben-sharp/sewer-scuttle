@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
 #include "EndlessRunner/PlayerClass.h"
+#include "EndlessRunner/ReplayModels.h"
 #include "EndlessRunnerHUD.generated.h"
 
 struct FTrackSelectionData;
@@ -64,8 +65,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void TogglePause();
 
+	/** Show the leaderboard UI */
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ShowLeaderboard();
+
 	/** Handle shop items received */
 	void OnShopItemsReceived(const struct FShopData& ShopData);
+
+	/** Handle replay data received */
+	UFUNCTION()
+	void OnReplayDataReceived(const TArray<FReplayEvent>& ReplayData);
+
+	/** Handle leaderboard data received */
+	UFUNCTION()
+	void OnLeaderboardReceived(const TArray<FLeaderboardEntryData>& Entries, int32 PlayerRank);
+
+	/** Handle leaderboard error */
+	UFUNCTION()
+	void OnLeaderboardError(const FString& ErrorMessage);
 
 protected:
 	/** Main menu widget */
@@ -95,6 +112,13 @@ protected:
 	/** Pause menu widget */
 	TSharedPtr<class SPauseWidget> PauseWidget;
 
+	/** Leaderboard widget */
+	TSharedPtr<class SLeaderboardWidget> LeaderboardWidget;
+
+	/** Web server interface */
+	UPROPERTY()
+	class UWebServerInterface* WebServerInterface;
+
 	/** Handle track selection */
 	void OnTrackSelected(int32 TrackIndex);
 
@@ -105,6 +129,12 @@ protected:
 	void OnShopClicked();
 	void OnLeaderboardClicked();
 	void OnSettingsClicked();
+
+	/** Handle leaderboard class filter change */
+	void OnLeaderboardClassChanged(FString ClassName);
+
+	/** Handle replay click */
+	void OnWatchReplayClicked(int32 RunId);
 
 	/** Handle shop purchase */
 	void OnPurchaseItem(FString ItemId);
@@ -120,4 +150,10 @@ protected:
 
 	/** Handle endless mode declined */
 	void OnEndlessModeDeclined();
+
+	/** Cached metadata for replay */
+	FLeaderboardEntryData PendingReplayMetadata;
+
+	/** Current leaderboard entries */
+	TArray<FLeaderboardEntryData> CurrentLeaderboardEntries;
 };

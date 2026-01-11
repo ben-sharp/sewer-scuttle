@@ -8,6 +8,7 @@
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
 #include "PlayerClass.h"
+#include "ReplayModels.h"
 #include "WebServerInterface.generated.h"
 
 /** Run seed data from server */
@@ -174,6 +175,8 @@ DECLARE_DYNAMIC_DELEGATE_OneParam(FOnTrackSelectionReceived, const FTrackSelecti
 DECLARE_DYNAMIC_DELEGATE_OneParam(FOnTrackSequenceReceived, const FTrackSequenceData&, SequenceData);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FOnShopItemsReceived, const FShopData&, ShopData);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FOnBossRewardsReceived, const TArray<FBossRewardData>&, Rewards);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnReplayReceived, const TArray<FReplayEvent>&, ReplayData);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FOnLeaderboardReceived, const TArray<FLeaderboardEntryData>&, Entries, int32, PlayerRank);
 
 /**
  * Handles communication with the backend web server
@@ -197,7 +200,15 @@ public:
 	void SubmitRun(const FString& SeedId, int32 Score, int32 Distance, int32 DurationSeconds,
 		int32 CoinsCollected, int32 ObstaclesHit, int32 PowerupsUsed, int32 TrackPiecesSpawned,
 		const FString& StartedAt, const TArray<int32>& SelectedTracks, bool bIsComplete, bool bIsEndless,
-		const TArray<FString>& PieceSequence, const FString& PlayerClass);
+		const TArray<FString>& PieceSequence, const FString& PlayerClass, const TArray<FReplayEvent>& ReplayData);
+
+	/** Fetch replay data for a run */
+	UFUNCTION(BlueprintCallable, Category = "Web Server")
+	void FetchReplayData(int32 RunId);
+
+	/** Fetch leaderboard data */
+	UFUNCTION(BlueprintCallable, Category = "Web Server")
+	void FetchLeaderboard(const FString& Timeframe = TEXT("all-time"), const FString& PlayerClass = TEXT(""));
 
 	/** Select a track for the current tier */
 	UFUNCTION(BlueprintCallable, Category = "Web Server")
@@ -238,6 +249,8 @@ public:
 	void SetOnTrackSequenceReceived(FOnTrackSequenceReceived Delegate) { OnTrackSequenceReceived = Delegate; }
 	void SetOnShopItemsReceived(FOnShopItemsReceived Delegate) { OnShopItemsReceived = Delegate; }
 	void SetOnBossRewardsReceived(FOnBossRewardsReceived Delegate) { OnBossRewardsReceived = Delegate; }
+	void SetOnReplayReceived(FOnReplayReceived Delegate) { OnReplayReceived = Delegate; }
+	void SetOnLeaderboardReceived(FOnLeaderboardReceived Delegate) { OnLeaderboardReceived = Delegate; }
 
 protected:
 	/** Handle seed response */
@@ -257,6 +270,12 @@ protected:
 
 	/** Handle run submission response */
 	void OnRunSubmitResponse(int32 ResponseCode, const FString& ResponseBody);
+
+	/** Handle replay response */
+	void OnReplayResponse(int32 ResponseCode, const FString& ResponseBody);
+
+	/** Handle leaderboard response */
+	void OnLeaderboardResponse(int32 ResponseCode, const FString& ResponseBody);
 
 	/** Handle HTTP error */
 	void OnHttpError(int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody);
@@ -286,4 +305,10 @@ protected:
 
 	UPROPERTY()
 	FOnBossRewardsReceived OnBossRewardsReceived;
+
+	UPROPERTY()
+	FOnReplayReceived OnReplayReceived;
+
+	UPROPERTY()
+	FOnLeaderboardReceived OnLeaderboardReceived;
 };

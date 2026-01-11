@@ -10,6 +10,7 @@ IMPLEMENT_MODULE(FContentExportToolbarModule, SewerScuttleEditor)
 
 void FContentExportToolbarModule::StartupModule()
 {
+	UE_LOG(LogTemp, Warning, TEXT("SewerScuttleEditor Module Starting Up..."));
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FContentExportToolbarModule::RegisterMenus));
 }
 

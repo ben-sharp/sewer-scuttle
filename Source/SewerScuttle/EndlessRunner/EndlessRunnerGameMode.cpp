@@ -122,6 +122,11 @@ void AEndlessRunnerGameMode::Tick(float DeltaTime)
 
 	if (RunnerGameState == EGameState::Playing)
 	{
+		if (bIsReplayMode)
+		{
+			UpdateReplay(DeltaTime);
+		}
+
 		GameTime += DeltaTime;
 
 		if (!CachedPlayer || !IsValid(CachedPlayer))
@@ -359,6 +364,7 @@ void AEndlessRunnerGameMode::StartGameWithSeed(int32 Seed, const FString& InSeed
 	
 	if (Player)
 	{
+		if (!bIsReplayMode) Player->StartRecording();
 		Player->SetActorTickEnabled(false);
 		Player->PrimaryActorTick.bCanEverTick = true;
 		Player->PrimaryActorTick.TickInterval = 0.0f;
@@ -418,7 +424,16 @@ void AEndlessRunnerGameMode::ResumeGame()
 		if (UWorld* World = GetWorld())
 		{
 			if (APlayerController* PlayerController = World->GetFirstPlayerController())
+			{
 				PlayerController->SetPause(false);
+				PlayerController->bShowMouseCursor = false;
+				PlayerController->SetInputMode(FInputModeGameOnly());
+				
+				if (GEngine && GEngine->GameViewport)
+				{
+					FSlateApplication::Get().SetAllUserFocusToGameViewport();
+				}
+			}
 		}
 	}
 }
@@ -449,9 +464,17 @@ void AEndlessRunnerGameMode::EndGame()
 			ActualSequence = TrackGenerator->GetCurrentPieceIds();
 		}
 
+		TArray<FReplayEvent> ReplayData;
+		if (CachedPlayer)
+		{
+			CachedPlayer->StopRecording();
+			ReplayData = CachedPlayer->GetReplayBuffer();
+		}
+
 		WebServerInterface->SubmitRun(
 			SeedId, Score, DistanceMeters, DurationSeconds, RunCurrency, ObstaclesHit, PowerupsUsed, TrackPiecesSpawned,
-			StartedAtStr, SelectedTrackIndices, false, bIsEndlessMode, ActualSequence, FPlayerClassData::PlayerClassToString(SelectedClass)
+			StartedAtStr, SelectedTrackIndices, false, bIsEndlessMode, ActualSequence, FPlayerClassData::PlayerClassToString(SelectedClass),
+			ReplayData
 		);
 	}
 	
@@ -1035,11 +1058,19 @@ void AEndlessRunnerGameMode::CompleteRun()
 		TArray<FString> PieceIds;
 		for (const FTrackPiecePrescription& P : TrackSequence.Pieces) PieceIds.Add(P.PieceId);
 
+		TArray<FReplayEvent> ReplayData;
+		if (CachedPlayer)
+		{
+			CachedPlayer->StopRecording();
+			ReplayData = CachedPlayer->GetReplayBuffer();
+		}
+
 		WebServerInterface->SubmitRun(
 			SeedId, Score, FMath::RoundToInt(GetDistanceTraveled()), FMath::RoundToInt(GameTime), 
 			RunCurrency, ObstaclesHit, PowerupsUsed, 
 			TrackGenerator ? TrackGenerator->GetTotalTrackPiecesSpawned() : 0, 
-			RunStartTime.ToIso8601(), SelectedTrackIndices, true, false, PieceIds, FPlayerClassData::PlayerClassToString(SelectedClass)
+			RunStartTime.ToIso8601(), SelectedTrackIndices, true, false, PieceIds, FPlayerClassData::PlayerClassToString(SelectedClass),
+			ReplayData
 		); 
 	}
 	SetGameState(EGameState::GameOver); 
@@ -1047,6 +1078,70 @@ void AEndlessRunnerGameMode::CompleteRun()
 }
 void AEndlessRunnerGameMode::ShowEndlessModeOption() { if (AEndlessRunnerHUD* HUD = Cast<AEndlessRunnerHUD>(GetWorld()->GetFirstPlayerController()->GetHUD())) HUD->ShowEndlessModePrompt(); }
 void AEndlessRunnerGameMode::StartEndlessMode() { bIsEndlessMode = true; bTrackSequenceLoaded = false; CurrentTier = 3; if (TrackGenerator) { TrackGenerator->SetCurrentDifficulty(3); TrackGenerator->SetEndlessMode(true); } if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) { PC->SetPause(false); PC->bShowMouseCursor = false; PC->SetInputMode(FInputModeGameOnly()); } SetGameState(EGameState::Playing); }
+
+void AEndlessRunnerGameMode::StartReplay(int32 Seed, const FString& InSeedId, EPlayerClass PlayerClass, const TArray<FReplayEvent>& ReplayData)
+{
+	UE_LOG(LogTemp, Warning, TEXT("GameMode: Starting Replay - Seed: %d, Class: %s"), Seed, *FPlayerClassData::PlayerClassToString(PlayerClass));
+	
+	bIsReplayMode = true;
+	CurrentReplayBuffer = ReplayData;
+	CurrentReplayEventIndex = 0;
+	SelectedClass = PlayerClass;
+	
+	StartGameWithSeed(Seed, InSeedId, 0, 0, 0);
+	
+	// Reset GameTime after StartGameWithSeed might have set it
+	GameTime = 0.0f;
+}
+
+void AEndlessRunnerGameMode::UpdateReplay(float DeltaTime)
+{
+	if (!bIsReplayMode || !CachedPlayer) return;
+
+	float CurrentReplayTime = GameTime;
+
+	while (CurrentReplayEventIndex < CurrentReplayBuffer.Num() && CurrentReplayBuffer[CurrentReplayEventIndex].Timestamp <= CurrentReplayTime)
+	{
+		const FReplayEvent& Event = CurrentReplayBuffer[CurrentReplayEventIndex];
+		
+		switch (Event.EventType)
+		{
+		case EReplayEventType::MoveLeft:
+			CachedPlayer->MoveLeft();
+			break;
+		case EReplayEventType::MoveRight:
+			CachedPlayer->MoveRight();
+			break;
+		case EReplayEventType::Jump:
+			if (CachedPlayer->GetJumpComponent()) CachedPlayer->GetJumpComponent()->PerformJump();
+			break;
+		case EReplayEventType::Slide:
+			CachedPlayer->Slide();
+			break;
+		case EReplayEventType::SlideReleased:
+			CachedPlayer->StopSlide();
+			break;
+		case EReplayEventType::PositionSync:
+			CachedPlayer->SetActorLocation(Event.Position, false, nullptr, ETeleportType::TeleportPhysics);
+			break;
+		}
+		
+		CurrentReplayEventIndex++;
+	}
+	
+	if (CurrentReplayEventIndex >= CurrentReplayBuffer.Num())
+	{
+		// End of replay reached
+		// We could stay in Playing state but stop updating, or trigger GameOver
+		// For now, let's just log
+		static bool bReplayEndedLog = false;
+		if (!bReplayEndedLog)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("GameMode: Replay finished"));
+			bReplayEndedLog = true;
+		}
+	}
+}
 
 UPowerUpDefinition* AEndlessRunnerGameMode::FindPowerUpDefinitionById(const FString& ID) const
 {

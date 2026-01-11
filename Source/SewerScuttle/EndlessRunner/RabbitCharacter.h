@@ -11,6 +11,7 @@
 #include "AbilitySystemInterface.h"
 #include "RabbitAttributeSet.h"
 #include "Obstacle.h"
+#include "ReplayModels.h"
 #include "RabbitCharacter.generated.h"
 
 class URabbitMovementComponent;
@@ -289,6 +290,15 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Class")
 	bool bCanBreakObstacles = false;
 
+	/** Replay Recording */
+	bool bIsRecording = false;
+	float RecordingStartTime = 0.0f;
+	float LastSyncTime = 0.0f;
+	const float SyncInterval = 2.0f; // Sync position every 2 seconds
+
+	UPROPERTY()
+	TArray<FReplayEvent> ReplayBuffer;
+
 private:
 	/** Update lane position smoothly */
 	void UpdateLanePosition(float DeltaTime);
@@ -372,6 +382,22 @@ public:
 	/** Apply an effect based on Gameplay Tag and value (from shop items) */
 	UFUNCTION(BlueprintCallable, Category = "GAS")
 	void ApplyEffectByTag(FGameplayTag Tag, float Value);
+
+	/** Recording functions */
+	UFUNCTION(BlueprintCallable, Category = "Replay")
+	void StartRecording();
+
+	UFUNCTION(BlueprintCallable, Category = "Replay")
+	void StopRecording();
+
+	UFUNCTION(BlueprintPure, Category = "Replay")
+	TArray<FReplayEvent> GetReplayBuffer() const { return ReplayBuffer; }
+
+	UFUNCTION(BlueprintCallable, Category = "Replay")
+	void SetReplayBuffer(const TArray<FReplayEvent>& NewBuffer) { ReplayBuffer = NewBuffer; }
+
+	UFUNCTION(BlueprintCallable, Category = "Replay")
+	void RecordEvent(EReplayEventType EventType, FVector Position = FVector::ZeroVector);
 
 protected:
 	/** Ability System Component */

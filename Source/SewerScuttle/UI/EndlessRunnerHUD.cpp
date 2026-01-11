@@ -10,6 +10,7 @@
 #include "SEndlessModePromptWidget.h"
 #include "SGameOverWidget.h"
 #include "SPauseWidget.h"
+#include "SLeaderboardWidget.h"
 #include "EndlessRunner/EndlessRunnerGameMode.h"
 #include "EndlessRunner/WebServerInterface.h"
 #include "EndlessRunner/CurrencyManager.h"
@@ -250,6 +251,11 @@ void AEndlessRunnerHUD::HideAllWidgets()
 			GEngine->GameViewport->RemoveViewportWidgetContent(PauseWidget.ToSharedRef());
 			PauseWidget.Reset();
 		}
+		if (LeaderboardWidget.IsValid())
+		{
+			GEngine->GameViewport->RemoveViewportWidgetContent(LeaderboardWidget.ToSharedRef());
+			LeaderboardWidget.Reset();
+		}
 	}
 }
 
@@ -331,7 +337,105 @@ void AEndlessRunnerHUD::OnShopClicked()
 
 void AEndlessRunnerHUD::OnLeaderboardClicked()
 {
-	// TODO: Show Leaderboard
+	ShowLeaderboard();
+}
+
+void AEndlessRunnerHUD::ShowLeaderboard()
+{
+	HideAllWidgets();
+	
+	if (GEngine && GEngine->GameViewport)
+	{
+		SAssignNew(LeaderboardWidget, SLeaderboardWidget)
+			.OnBackClicked(FSimpleDelegate::CreateUObject(this, &AEndlessRunnerHUD::ShowMainMenu))
+			.OnWatchReplayClicked(FOnWatchReplayClicked::CreateUObject(this, &AEndlessRunnerHUD::OnWatchReplayClicked))
+			.OnClassTabChanged(FOnClassTabChanged::CreateUObject(this, &AEndlessRunnerHUD::OnLeaderboardClassChanged));
+			
+		LeaderboardWidget->SetLoading(true);
+		
+		GEngine->GameViewport->AddViewportWidgetContent(SNew(SWeakWidget).PossiblyNullContent(LeaderboardWidget.ToSharedRef()));
+		
+		if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+		{
+			PC->bShowMouseCursor = true;
+			PC->SetInputMode(FInputModeUIOnly());
+		}
+	}
+
+	if (!WebServerInterface)
+	{
+		WebServerInterface = NewObject<UWebServerInterface>(this);
+		WebServerInterface->Initialize();
+	}
+	
+	FOnLeaderboardReceived OnLeaderboardReceivedDelegate;
+	OnLeaderboardReceivedDelegate.BindUFunction(this, FName("OnLeaderboardReceived"));
+	WebServerInterface->SetOnLeaderboardReceived(OnLeaderboardReceivedDelegate);
+	
+	FOnReplayReceived OnReplayReceivedDelegate;
+	OnReplayReceivedDelegate.BindUFunction(this, FName("OnReplayDataReceived"));
+	WebServerInterface->SetOnReplayReceived(OnReplayReceivedDelegate);
+	
+	FOnError OnErrorDelegate;
+	OnErrorDelegate.BindUFunction(this, FName("OnLeaderboardError"));
+	WebServerInterface->SetOnError(OnErrorDelegate);
+	
+	WebServerInterface->FetchLeaderboard();
+}
+
+void AEndlessRunnerHUD::OnLeaderboardClassChanged(FString ClassName)
+{
+	if (WebServerInterface)
+	{
+		WebServerInterface->FetchLeaderboard(TEXT("all-time"), ClassName);
+	}
+}
+
+void AEndlessRunnerHUD::OnLeaderboardReceived(const TArray<FLeaderboardEntryData>& Entries, int32 PlayerRank)
+{
+	CurrentLeaderboardEntries = Entries;
+
+	if (LeaderboardWidget.IsValid())
+	{
+		LeaderboardWidget->UpdateLeaderboard(Entries, PlayerRank);
+	}
+}
+
+void AEndlessRunnerHUD::OnLeaderboardError(const FString& ErrorMessage)
+{
+	UE_LOG(LogTemp, Error, TEXT("Leaderboard Error: %s"), *ErrorMessage);
+	if (LeaderboardWidget.IsValid())
+	{
+		// Force empty update to clear loading state and show "No records" or an error msg
+		LeaderboardWidget->UpdateLeaderboard(TArray<FLeaderboardEntryData>(), 0);
+	}
+}
+
+void AEndlessRunnerHUD::OnWatchReplayClicked(int32 RunId)
+{
+	UE_LOG(LogTemp, Warning, TEXT("HUD: Watch Replay clicked for RunId: %d"), RunId);
+	for (const auto& Entry : CurrentLeaderboardEntries)
+	{
+		if (Entry.RunId == RunId)
+		{
+			PendingReplayMetadata = Entry;
+			break;
+		}
+	}
+
+	if (WebServerInterface)
+	{
+		WebServerInterface->FetchReplayData(RunId);
+	}
+}
+
+void AEndlessRunnerHUD::OnReplayDataReceived(const TArray<FReplayEvent>& ReplayData)
+{
+	HideAllWidgets();
+	if (AEndlessRunnerGameMode* GM = Cast<AEndlessRunnerGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GM->StartReplay(PendingReplayMetadata.Seed, PendingReplayMetadata.SeedId, PendingReplayMetadata.PlayerClass, ReplayData);
+	}
 }
 
 void AEndlessRunnerHUD::OnSettingsClicked()

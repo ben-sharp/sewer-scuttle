@@ -15,7 +15,6 @@ return new class extends Migration
             $table->integer('track_pieces_spawned')->default(0);
             $table->json('track_sequence')->nullable();
             $table->boolean('is_suspicious')->default(false);
-            $table->timestamp('started_at')->nullable();
         });
     }
 

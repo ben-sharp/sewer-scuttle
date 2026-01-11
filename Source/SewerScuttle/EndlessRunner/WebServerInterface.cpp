@@ -395,6 +395,72 @@ void UWebServerInterface::OnBossRewardsResponse(int32 ResponseCode, const FStrin
 	}
 }
 
+void UWebServerInterface::FetchLeaderboard(const FString& Timeframe, const FString& PlayerClass)
+{
+	if (!HttpClient) Initialize();
+
+	FString Endpoint = FString::Printf(TEXT("/leaderboard?timeframe=%s"), *Timeframe);
+	if (!PlayerClass.IsEmpty())
+	{
+		Endpoint += FString::Printf(TEXT("&class=%s"), *PlayerClass);
+	}
+
+	HttpClient->Get(Endpoint,
+		FOnHttpResponse::CreateLambda([this](int32 ResponseCode, const FString& ResponseBody)
+		{
+			OnLeaderboardResponse(ResponseCode, ResponseBody);
+		}),
+		FOnHttpError::CreateLambda([this](int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody)
+		{
+			OnHttpError(ResponseCode, ErrorMessage, ResponseBody);
+		}));
+}
+
+void UWebServerInterface::OnLeaderboardResponse(int32 ResponseCode, const FString& ResponseBody)
+{
+	if (ResponseCode >= 200 && ResponseCode < 300)
+	{
+		TSharedPtr<FJsonObject> JsonObject;
+		TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
+
+		if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+		{
+			TArray<FLeaderboardEntryData> Entries;
+			const TArray<TSharedPtr<FJsonValue>>* EntriesArray;
+			if (JsonObject->TryGetArrayField(TEXT("entries"), EntriesArray))
+			{
+				for (const TSharedPtr<FJsonValue>& Val : *EntriesArray)
+				{
+					TSharedPtr<FJsonObject> Obj = Val->AsObject();
+					FLeaderboardEntryData Entry;
+					Entry.RunId = Obj->GetIntegerField(TEXT("run_id"));
+					Entry.PlayerName = Obj->GetStringField(TEXT("player_name"));
+					Entry.Score = Obj->GetIntegerField(TEXT("score"));
+					Entry.SeedId = Obj->GetStringField(TEXT("seed_id"));
+					Entry.Seed = Obj->GetIntegerField(TEXT("track_seed"));
+					Entry.bHasReplay = Obj->GetBoolField(TEXT("has_replay"));
+					
+					FString ClassStr = Obj->GetStringField(TEXT("player_class"));
+					Entry.PlayerClass = FPlayerClassData::StringToPlayerClass(ClassStr);
+					
+					Entries.Add(Entry);
+				}
+			}
+
+			int32 PlayerRank = 0;
+			if (JsonObject->HasField(TEXT("player_rank")))
+			{
+				PlayerRank = JsonObject->GetIntegerField(TEXT("player_rank"));
+			}
+
+			if (OnLeaderboardReceived.IsBound())
+			{
+				OnLeaderboardReceived.Execute(Entries, PlayerRank);
+			}
+		}
+	}
+}
+
 void UWebServerInterface::RequestTierTracks(const FString& SeedId, int32 Tier)
 {
     if (!HttpClient) Initialize();
@@ -456,7 +522,7 @@ void UWebServerInterface::OnTrackSelectionResponse(int32 ResponseCode, const FSt
 void UWebServerInterface::SubmitRun(const FString& SeedId, int32 Score, int32 Distance, int32 DurationSeconds,
 	int32 CoinsCollected, int32 ObstaclesHit, int32 PowerupsUsed, int32 TrackPiecesSpawned,
 	const FString& StartedAt, const TArray<int32>& SelectedTracks, bool bIsComplete, bool bIsEndless,
-	const TArray<FString>& PieceSequence, const FString& PlayerClass)
+	const TArray<FString>& PieceSequence, const FString& PlayerClass, const TArray<FReplayEvent>& ReplayData)
 {
 	if (!HttpClient) Initialize();
 
@@ -481,6 +547,24 @@ void UWebServerInterface::SubmitRun(const FString& SeedId, int32 Score, int32 Di
 	TArray<TSharedPtr<FJsonValue>> PieceSeqJson;
 	for (const FString& PieceId : PieceSequence) PieceSeqJson.Add(MakeShareable(new FJsonValueString(PieceId)));
 	JsonObject->SetArrayField(TEXT("track_sequence"), PieceSeqJson);
+
+	// Serialize replay data
+	TArray<TSharedPtr<FJsonValue>> ReplayJson;
+	for (const FReplayEvent& Event : ReplayData)
+	{
+		TSharedPtr<FJsonObject> EventObj = MakeShareable(new FJsonObject);
+		EventObj->SetNumberField(TEXT("t"), Event.Timestamp);
+		EventObj->SetNumberField(TEXT("e"), (int32)Event.EventType);
+		
+		TSharedPtr<FJsonObject> PosObj = MakeShareable(new FJsonObject);
+		PosObj->SetNumberField(TEXT("x"), Event.Position.X);
+		PosObj->SetNumberField(TEXT("y"), Event.Position.Y);
+		PosObj->SetNumberField(TEXT("z"), Event.Position.Z);
+		EventObj->SetObjectField(TEXT("p"), PosObj);
+		
+		ReplayJson.Add(MakeShareable(new FJsonValueObject(EventObj)));
+	}
+	JsonObject->SetArrayField(TEXT("replay_data"), ReplayJson);
 
 	UDeviceIdManager* DeviceIdManager = UDeviceIdManager::Get();
 	if (DeviceIdManager && DeviceIdManager->HasDeviceId())
@@ -530,6 +614,63 @@ void UWebServerInterface::PurchaseItem(const FString& ItemId, int32 Price)
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Body);
 	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
 	HttpClient->Post(TEXT("/currency/purchase"), Body, nullptr, nullptr);
+}
+
+void UWebServerInterface::FetchReplayData(int32 RunId)
+{
+	if (!HttpClient) Initialize();
+
+	HttpClient->Get(FString::Printf(TEXT("/runs/%d/replay"), RunId),
+		FOnHttpResponse::CreateLambda([this](int32 ResponseCode, const FString& ResponseBody)
+		{
+			OnReplayResponse(ResponseCode, ResponseBody);
+		}),
+		FOnHttpError::CreateLambda([this](int32 ResponseCode, const FString& ErrorMessage, const FString& ResponseBody)
+		{
+			OnHttpError(ResponseCode, ErrorMessage, ResponseBody);
+		}));
+}
+
+void UWebServerInterface::OnReplayResponse(int32 ResponseCode, const FString& ResponseBody)
+{
+	if (ResponseCode >= 200 && ResponseCode < 300)
+	{
+		TSharedPtr<FJsonValue> JsonValue;
+		TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
+
+		if (FJsonSerializer::Deserialize(Reader, JsonValue) && JsonValue.IsValid())
+		{
+			const TArray<TSharedPtr<FJsonValue>>* ReplayArray;
+			if (JsonValue->TryGetArray(ReplayArray))
+			{
+				TArray<FReplayEvent> ReplayData;
+				for (const TSharedPtr<FJsonValue>& Val : *ReplayArray)
+				{
+					TSharedPtr<FJsonObject> Obj = Val->AsObject();
+					FReplayEvent Event;
+					Event.Timestamp = Obj->GetNumberField(TEXT("t"));
+					Event.EventType = (EReplayEventType)Obj->GetIntegerField(TEXT("e"));
+					
+					TSharedPtr<FJsonObject> PosObj = Obj->GetObjectField(TEXT("p"));
+					Event.Position.X = PosObj->GetNumberField(TEXT("x"));
+					Event.Position.Y = PosObj->GetNumberField(TEXT("y"));
+					Event.Position.Z = PosObj->GetNumberField(TEXT("z"));
+					
+					ReplayData.Add(Event);
+				}
+
+				if (OnReplayReceived.IsBound())
+				{
+					OnReplayReceived.Execute(ReplayData);
+				}
+			}
+		}
+	}
+	else
+	{
+		FString ErrorMsg = FString::Printf(TEXT("Replay not found or failed to load (HTTP %d)"), ResponseCode);
+		if (OnError.IsBound()) OnError.Execute(ErrorMsg);
+	}
 }
 
 void UWebServerInterface::OnRunSubmitResponse(int32 ResponseCode, const FString& ResponseBody)

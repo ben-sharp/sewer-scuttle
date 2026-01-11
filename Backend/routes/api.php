@@ -21,7 +21,10 @@ Route::prefix('runs')->group(function () {
     Route::get('/{seed_id}/shop/{tier}/{track_index}/{shop_index}', [RunController::class, 'getShopItems']);
     Route::get('/{seed_id}/boss-rewards/{tier}', [RunController::class, 'getBossRewards']);
     Route::post('/', [RunController::class, 'store']);
+    Route::get('/{run}/replay', [RunController::class, 'replay']);
 });
+
+Route::get('/leaderboard', [\App\Http\Controllers\Api\LeaderboardController::class, 'index']);
 
 Route::prefix('content')->group(function () {
     Route::get('/latest', [ContentController::class, 'latest']);

@@ -13,13 +13,12 @@ public class SewerScuttleEditor : ModuleRules
 			"CoreUObject", 
 			"Engine", 
 			"InputCore", 
-			"SewerScuttle" 
+			"SewerScuttle"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { 
 			"Slate", 
 			"SlateCore", 
-			"UnrealEd", 
 			"ToolMenus", 
 			"LevelEditor" 
 		});

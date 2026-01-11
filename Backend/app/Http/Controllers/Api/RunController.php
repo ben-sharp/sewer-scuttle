@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Player;
 use App\Models\Run;
+use App\Models\RunReplay;
 use App\Services\RunSeedService;
+use Illuminate\Support\Facades\Cache;
 use App\Services\RunValidationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -83,11 +85,16 @@ class RunController extends Controller
             'player_class' => 'string|nullable',
             'device_id' => 'string|nullable',
             'started_at' => 'string|nullable',
+            'replay_data' => 'array|nullable',
         ]);
 
         $validationResult = $this->validationService->validate($validated);
         
         $player = $request->user()?->player;
+
+        // Fetch integer seed from cache
+        $seedData = Cache::get("run_seed_{$validated['seed_id']}");
+        $trackSeed = $seedData['seed'] ?? null;
 
         // If no authenticated player, find or create one by device_id
         if (!$player && $validated['device_id']) {
@@ -105,6 +112,7 @@ class RunController extends Controller
             'device_id' => $validated['device_id'] ?? null,
             'player_class' => $validated['player_class'] ?? 'Vanilla',
             'seed_id' => $validated['seed_id'],
+            'track_seed' => $trackSeed,
             'score' => $validated['score'],
             'distance' => $validated['distance'],
             'duration_seconds' => $validated['duration_seconds'],
@@ -119,6 +127,14 @@ class RunController extends Controller
             'started_at' => (isset($validated['started_at']) && $validated['started_at']) ? now()->parse($validated['started_at']) : now(),
         ]);
 
+        // Save replay data if provided
+        if (isset($validated['replay_data']) && $validated['replay_data']) {
+            RunReplay::create([
+                'run_id' => $run->id,
+                'data' => $validated['replay_data'],
+            ]);
+        }
+
         // Update player stats
         if ($player) {
             $player->increment('total_runs');
@@ -128,18 +144,17 @@ class RunController extends Controller
                 $player->update(['best_score' => $run->score]);
             }
 
-            // Create leaderboard entries if run is complete
-            if ($run->is_complete) {
-                $timeframes = ['daily', 'weekly', 'all-time'];
-                foreach ($timeframes as $timeframe) {
-                    \App\Models\LeaderboardEntry::create([
-                        'player_id' => $player->id,
-                        'score' => $run->score,
-                        'player_class' => $run->player_class,
-                        'timeframe' => $timeframe,
-                        'achieved_at' => now(),
-                    ]);
-                }
+            // Create leaderboard entries (allow incomplete for testing)
+            $timeframes = ['daily', 'weekly', 'all-time'];
+            foreach ($timeframes as $timeframe) {
+                \App\Models\LeaderboardEntry::create([
+                    'player_id' => $player->id,
+                    'run_id' => $run->id,
+                    'score' => $run->score,
+                    'player_class' => $run->player_class,
+                    'timeframe' => $timeframe,
+                    'achieved_at' => now(),
+                ]);
             }
         }
 
@@ -148,5 +163,16 @@ class RunController extends Controller
             'id' => $run->id,
             'is_suspicious' => $run->is_suspicious,
         ], 201);
+    }
+
+    public function replay(Run $run): JsonResponse
+    {
+        $replay = $run->replay;
+
+        if (!$replay) {
+            return response()->json(['message' => 'Replay not found'], 404);
+        }
+
+        return response()->json($replay->data);
     }
 }

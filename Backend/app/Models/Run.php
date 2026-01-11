@@ -16,6 +16,7 @@ class Run extends Model
         'device_id',
         'player_class',
         'seed_id',
+        'track_seed',
         'score',
         'distance',
         'duration_seconds',
@@ -38,6 +39,7 @@ class Run extends Model
         'is_complete' => 'boolean',
         'is_endless' => 'boolean',
         'is_suspicious' => 'boolean',
+        'track_seed' => 'integer',
         'score' => 'integer',
         'distance' => 'integer',
         'duration_seconds' => 'integer',
@@ -52,6 +54,11 @@ class Run extends Model
     public function player(): BelongsTo
     {
         return $this->belongsTo(Player::class);
+    }
+
+    public function replay(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(RunReplay::class);
     }
 
     public function scopeAuthenticated(Builder $query): Builder

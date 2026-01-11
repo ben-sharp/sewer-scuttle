@@ -6,6 +6,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "PlayerClass.h"
 #include "WebServerInterface.h"
+#include "ReplayModels.h"
 #include "EndlessRunnerGameMode.generated.h"
 
 class ATrackGenerator;
@@ -302,6 +303,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Track Progression")
 	void StartEndlessMode();
 
+	/** Replay System */
+	UFUNCTION(BlueprintCallable, Category = "Replay")
+	void StartReplay(int32 Seed, const FString& InSeedId, EPlayerClass PlayerClass, const TArray<FReplayEvent>& ReplayData);
+
+	UFUNCTION(BlueprintPure, Category = "Replay")
+	bool IsReplayMode() const { return bIsReplayMode; }
+
 	/** Check if magnet is active */
 	UFUNCTION(BlueprintPure, Category = "PowerUp")
 	bool IsMagnetActive() const { return bMagnetActive; }
@@ -516,6 +524,14 @@ protected:
 
 	/** Autopilot power-up state */
 	bool bAutopilotActive = false;
+
+	/** Replay State */
+	bool bIsReplayMode = false;
+	TArray<FReplayEvent> CurrentReplayBuffer;
+	int32 CurrentReplayEventIndex = 0;
+	float ReplayStartTime = 0.0f;
+
+	void UpdateReplay(float DeltaTime);
 
 private:
 	/** Timer handle for respawn delay */

@@ -12,6 +12,7 @@ class LeaderboardEntry extends Model
 
     protected $fillable = [
         'player_id',
+        'run_id',
         'score',
         'player_class',
         'timeframe',
@@ -29,5 +30,10 @@ class LeaderboardEntry extends Model
     public function player(): BelongsTo
     {
         return $this->belongsTo(Player::class);
+    }
+
+    public function run(): BelongsTo
+    {
+        return $this->belongsTo(Run::class);
     }
 }

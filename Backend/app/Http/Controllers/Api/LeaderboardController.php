@@ -21,8 +21,9 @@ class LeaderboardController extends Controller
         $class = $validated['class'] ?? null;
         $timeframe = $validated['timeframe'] ?? 'all-time';
 
-        $query = LeaderboardEntry::with('player')
+        $query = LeaderboardEntry::with(['player', 'run.replay'])
             ->where('timeframe', $timeframe)
+            ->whereNotIn('player_class', ['Scout', 'Collector']) // Exclude coming soon classes
             ->orderBy('score', 'desc');
 
         if ($class) {
@@ -45,11 +46,15 @@ class LeaderboardController extends Controller
                 return [
                     'rank' => $index + 1,
                     'player_id' => $entry->player_id,
+                    'run_id' => $entry->run_id,
                     'player_name' => $entry->player->display_name,
                     'score' => $entry->score,
                     'player_class' => $entry->player_class,
-                    'achieved_at' => $entry->achieved_at,
-                ];
+                        'achieved_at' => $entry->achieved_at,
+                        'seed_id' => $entry->run?->seed_id,
+                        'track_seed' => $entry->run?->track_seed ?? 0,
+                        'has_replay' => $entry->run?->replay !== null,
+                    ];
             }),
         ]);
     }
